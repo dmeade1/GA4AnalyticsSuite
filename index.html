@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description"
+    content="GA4 Analytics Platform for RMSMC - Comprehensive analytics dashboard with period comparison capabilities">
+  <title>GA4 Analytics Platform | RMSMC</title>
+
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <!-- Google API Client Library -->
+  <script src="https://apis.google.com/js/api.js"></script>
+
+  <!-- Chart.js for Data Visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <div class="header-content">
+        <div class="logo">
+          <div class="logo-icon">GA</div>
+          <div class="logo-text">
+            <h1>Analytics Suite</h1>
+            <p>RMSMC Performance Dashboard</p>
+          </div>
+        </div>
+
+        <div class="user-section">
+          <!-- Sign In Button (shown when not authenticated) -->
+          <div id="signInButton" class="hidden"></div>
+
+          <!-- User Info (shown when authenticated) -->
+          <div id="userInfo" class="user-info hidden">
+            <img id="userAvatar" class="user-avatar" src="" alt="User Avatar">
+            <span id="userName" class="user-name"></span>
+          </div>
+
+          <!-- Sign Out Button (shown when authenticated) -->
+          <button id="signOutButton" class="btn btn-secondary btn-sm hidden">
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main">
+    <div class="container">
+      <!-- Authentication Required Message -->
+      <div id="authRequired" class="card text-center">
+        <div class="card-header">
+          <h2 class="card-title">🔐 Authentication Required</h2>
+          <p class="card-subtitle">Sign in with your Google account to access GA4 analytics data</p>
+        </div>
+        <p class="text-muted mb-lg">
+          This platform connects to your Google Analytics 4 properties to provide comprehensive analytics and period
+          comparisons.
+          You'll need to grant permission to access your GA4 data.
+        </p>
+        <div id="authButtonContainer"></div>
+      </div>
+
+      <!-- Configuration Panel -->
+      <div id="configPanel" class="card hidden">
+        <div class="card-header">
+          <h3 class="card-title">⚙️ Configuration</h3>
+          <p class="card-subtitle">Configure your GA4 property and date ranges</p>
+        </div>
+
+        <div class="grid grid-2">
+          <!-- GA4 Property Configuration -->
+          <div class="form-group">
+            <label class="form-label" for="propertyId">Select Property</label>
+            <select id="propertyId" class="form-select" aria-label="Select GA4 Property">
+              <option value="" disabled selected>Choose a property...</option>
+              <option value="321341958">Collegian</option>
+              <option value="352970688">KCSU</option>
+              <option value="352990478">RMSMC</option>
+              <option value="397333725">Fifty03'</option>
+              <option value="352975714">College Avenue</option>
+            </select>
+          </div>
+
+          <!-- Date Range Preset -->
+          <div class="form-group">
+            <label class="form-label" for="dateRangePreset">Date Range Comparison</label>
+            <select id="dateRangePreset" class="form-select" aria-label="Date Range Preset">
+              <option value="7days">Last 7 Days vs Previous 7 Days</option>
+              <option value="30days">Last 30 Days vs Previous 30 Days</option>
+              <option value="90days">Last 90 Days vs Previous 90 Days</option>
+              <option value="month">This Month vs Last Month</option>
+              <option value="year">This Year vs Last Year</option>
+              <option value="custom">Custom Date Ranges</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Custom Date Ranges (shown when custom is selected) -->
+        <div id="customDateRanges" class="hidden">
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label class="form-label" for="startDate1">Primary Period Start</label>
+              <input type="date" id="startDate1" class="form-input" aria-label="Primary Period Start Date">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="endDate1">Primary Period End</label>
+              <input type="date" id="endDate1" class="form-input" aria-label="Primary Period End Date">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="startDate2">Comparison Period Start</label>
+              <input type="date" id="startDate2" class="form-input" aria-label="Comparison Period Start Date">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="endDate2">Comparison Period End</label>
+              <input type="date" id="endDate2" class="form-input" aria-label="Comparison Period End Date">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex" style="justify-content: flex-end; margin-top: var(--spacing-lg);">
+          <button id="fetchDataButton" class="btn btn-primary btn-lg">
+            📊 Fetch Analytics Data
+          </button>
+        </div>
+
+        <!-- Error/Success Messages -->
+        <div id="configMessage" class="hidden mt-lg"></div>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="dashboard" class="hidden">
+        <!-- Metrics Grid -->
+        <div class="grid grid-4 mb-xl">
+          <div class="metric-card fade-in">
+            <div class="metric-header">
+              <span class="metric-label">Total Users</span>
+              <div class="metric-icon">👥</div>
+            </div>
+            <div class="metric-value" id="metricUsers">-</div>
+            <div class="metric-comparison">
+              <span id="comparisonUsers" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous period</span>
+            </div>
+          </div>
+
+          <div class="metric-card fade-in" style="animation-delay: 0.1s;">
+            <div class="metric-header">
+              <span class="metric-label">Sessions</span>
+              <div class="metric-icon">🔄</div>
+            </div>
+            <div class="metric-value" id="metricSessions">-</div>
+            <div class="metric-comparison">
+              <span id="comparisonSessions" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous period</span>
+            </div>
+          </div>
+
+          <div class="metric-card fade-in" style="animation-delay: 0.2s;">
+            <div class="metric-header">
+              <span class="metric-label">Page Views</span>
+              <div class="metric-icon">📄</div>
+            </div>
+            <div class="metric-value" id="metricPageViews">-</div>
+            <div class="metric-comparison">
+              <span id="comparisonPageViews" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous period</span>
+            </div>
+          </div>
+
+          <div class="metric-card fade-in" style="animation-delay: 0.3s;">
+            <div class="metric-header">
+              <span class="metric-label">Engagement Rate</span>
+              <div class="metric-icon">⚡</div>
+            </div>
+            <div class="metric-value" id="metricEngagement">-</div>
+            <div class="metric-comparison">
+              <span id="comparisonEngagement" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous period</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">📈 Trend Analysis</h3>
+              <p class="card-subtitle">Daily comparison of key metrics</p>
+            </div>
+            <div class="chart-container">
+              <canvas id="trendChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">📊 Period Comparison</h3>
+              <p class="card-subtitle">Side-by-side metric comparison</p>
+            </div>
+            <div class="chart-container">
+              <canvas id="comparisonChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detailed Data Table -->
+        <div class="card mt-xl">
+          <div class="card-header">
+            <h3 class="card-title">📋 Detailed Metrics</h3>
+            <p class="card-subtitle">Complete breakdown of analytics data</p>
+          </div>
+          <div id="dataTable" style="overflow-x: auto;"></div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loadingState" class="hidden">
+        <div class="card text-center">
+          <div class="loading">
+            <div class="spinner"></div>
+          </div>
+          <p class="text-muted">Fetching analytics data from GA4...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Application Script -->
+  <script src="app.js"></script>
+</body>
+
+</html>
