@@ -3,16 +3,7 @@
 // ===================================
 
 // Configuration
-const CONFIG = {
-  // OAuth 2.0 Client ID from Google Cloud Console
-  CLIENT_ID: '987471502834-a7cas5j7ehn5qicm7q7hmlp4hetundls.apps.googleusercontent.com',
-
-  // GA4 Data API Discovery Document
-  DISCOVERY_DOC: 'https://analyticsdata.googleapis.com/$discovery/rest?version=v1beta',
-
-  // OAuth Scopes
-  SCOPES: 'https://www.googleapis.com/auth/analytics.readonly',
-};
+// Configuration is loaded from config.js
 
 // Global State
 let tokenClient;
@@ -20,6 +11,7 @@ let gapiInited = false;
 let gisInited = false;
 let accessToken = null;
 let currentPropertyId = null;
+let comparisonMode = 'time'; // 'time' or 'property'
 
 // Chart instances
 let trendChart = null;
@@ -105,7 +97,7 @@ function showSignInButton() {
   google.accounts.id.renderButton(
     signInButton,
     {
-      theme: 'filled_blue',
+      theme: 'outline',
       size: 'large',
       text: 'signin_with',
       shape: 'rectangular',
@@ -231,8 +223,12 @@ function setupEventListeners() {
   // Fetch data button
   document.getElementById('fetchDataButton').addEventListener('click', handleFetchData);
 
-  // Date range preset selector
+  // Comparison mode selector
+  document.getElementById('comparisonMode').addEventListener('change', handleComparisonModeChange);
+
+  // Date range preset selectors
   document.getElementById('dateRangePreset').addEventListener('change', handleDateRangeChange);
+  document.getElementById('singleDateRange').addEventListener('change', handleSingleDateRangeChange);
 
   // Property ID input - save to state
   document.getElementById('propertyId').addEventListener('change', (e) => {
@@ -241,13 +237,62 @@ function setupEventListeners() {
 }
 
 /**
+ * Handle comparison mode change
+ */
+function handleComparisonModeChange(e) {
+  comparisonMode = e.target.value;
+
+  // Toggle UI elements based on mode
+  const singlePropertyGroup = document.getElementById('singlePropertyGroup');
+  const multiPropertyGroup = document.getElementById('multiPropertyGroup');
+  const dateRangePresetGroup = document.getElementById('dateRangePresetGroup');
+  const singleDateRangeGroup = document.getElementById('singleDateRangeGroup');
+
+  if (comparisonMode === 'time') {
+    singlePropertyGroup.classList.remove('hidden');
+    multiPropertyGroup.classList.add('hidden');
+    dateRangePresetGroup.classList.remove('hidden');
+    singleDateRangeGroup.classList.add('hidden');
+  } else {
+    singlePropertyGroup.classList.add('hidden');
+    multiPropertyGroup.classList.remove('hidden');
+    dateRangePresetGroup.classList.add('hidden');
+    singleDateRangeGroup.classList.remove('hidden');
+  }
+
+  // Reset custom date ranges
+  document.getElementById('customDateRanges').classList.add('hidden');
+}
+
+/**
  * Handle date range preset change
  */
 function handleDateRangeChange(e) {
   const customRanges = document.getElementById('customDateRanges');
+  const customTimeRanges = document.getElementById('customTimeRanges');
+  const customPropertyRanges = document.getElementById('customPropertyRanges');
 
   if (e.target.value === 'custom') {
     customRanges.classList.remove('hidden');
+    customTimeRanges.classList.remove('hidden');
+    customPropertyRanges.classList.add('hidden');
+  } else {
+    customRanges.classList.add('hidden');
+  }
+}
+
+/**
+ * Handle single date range change (property comparison mode)
+ */
+function handleSingleDateRangeChange(e) {
+  const customRanges = document.getElementById('customDateRanges');
+  const customTimeRanges = document.getElementById('customTimeRanges');
+  const customPropertyRanges = document.getElementById('customPropertyRanges');
+
+  if (e.target.value === 'custom') {
+    customRanges.classList.remove('hidden');
+    customTimeRanges.classList.add('hidden');
+    customPropertyRanges.classList.remove('hidden');
   } else {
     customRanges.classList.add('hidden');
   }
@@ -367,6 +412,59 @@ function getDateRanges() {
   ];
 }
 
+/**
+ * Get single date range for property comparison mode
+ */
+function getSingleDateRange() {
+  const preset = document.getElementById('singleDateRange').value;
+  const today = new Date();
+
+  if (preset === 'custom') {
+    return {
+      startDate: document.getElementById('startDateSingle').value,
+      endDate: document.getElementById('endDateSingle').value,
+    };
+  }
+
+  // Calculate preset date range
+  let start, end;
+
+  switch (preset) {
+    case '7days':
+      end = new Date(today);
+      start = new Date(today);
+      start.setDate(today.getDate() - 7);
+      break;
+
+    case '30days':
+      end = new Date(today);
+      start = new Date(today);
+      start.setDate(today.getDate() - 30);
+      break;
+
+    case '90days':
+      end = new Date(today);
+      start = new Date(today);
+      start.setDate(today.getDate() - 90);
+      break;
+
+    case 'month':
+      end = new Date(today);
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+      break;
+
+    case 'year':
+      end = new Date(today);
+      start = new Date(today.getFullYear(), 0, 1);
+      break;
+  }
+
+  return {
+    startDate: formatDate(start),
+    endDate: formatDate(end),
+  };
+}
+
 // ===================================
 // GA4 Data Fetching
 // ===================================
@@ -375,30 +473,53 @@ function getDateRanges() {
  * Handle fetch data button click
  */
 async function handleFetchData() {
-  // Validate property ID
-  const propertyId = document.getElementById('propertyId').value.trim();
-
-  if (!propertyId) {
-    showMessage('configMessage', 'Please select a GA4 Property', 'error');
-    return;
-  }
-
-  currentPropertyId = propertyId;
-
   // Show loading state
   document.getElementById('loadingState').classList.remove('hidden');
   document.getElementById('dashboard').classList.add('hidden');
   document.getElementById('configMessage').classList.add('hidden');
 
   try {
-    // Get date ranges
-    const dateRanges = getDateRanges();
+    if (comparisonMode === 'time') {
+      // Time comparison mode: single property, two time periods
+      const propertyId = document.getElementById('propertyId').value.trim();
 
-    // Fetch data from GA4
-    const data = await fetchGA4Data(propertyId, dateRanges);
+      if (!propertyId) {
+        throw new Error('Please select a GA4 Property');
+      }
 
-    // Update dashboard
-    updateDashboard(data, dateRanges);
+      currentPropertyId = propertyId;
+
+      // Get date ranges
+      const dateRanges = getDateRanges();
+
+      // Fetch data from GA4
+      const data = await fetchGA4Data(propertyId, dateRanges);
+
+      // Update dashboard
+      updateDashboard(data, dateRanges, 'time');
+
+    } else {
+      // Property comparison mode: multiple properties, single time period
+      const selectedProperties = Array.from(
+        document.querySelectorAll('input[name="properties"]:checked')
+      ).map(cb => ({
+        id: cb.value,
+        name: cb.parentElement.textContent.trim()
+      }));
+
+      if (selectedProperties.length < 2) {
+        throw new Error('Please select at least 2 properties to compare');
+      }
+
+      // Get single date range
+      const dateRange = getSingleDateRange();
+
+      // Fetch data for all properties
+      const multiPropertyData = await fetchMultiPropertyData(selectedProperties, dateRange);
+
+      // Update dashboard
+      updateDashboard(multiPropertyData, dateRange, 'property', selectedProperties);
+    }
 
     // Hide loading, show dashboard
     document.getElementById('loadingState').classList.add('hidden');
@@ -445,6 +566,53 @@ async function fetchGA4Data(propertyId, dateRanges) {
   }
 }
 
+/**
+ * Fetch data from multiple GA4 properties
+ */
+async function fetchMultiPropertyData(properties, dateRange) {
+  const allData = [];
+
+  for (const property of properties) {
+    const request = {
+      property: `properties/${property.id}`,
+      dateRanges: [{
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      }],
+      metrics: [
+        { name: 'totalUsers' },
+        { name: 'sessions' },
+        { name: 'screenPageViews' },
+        { name: 'engagedSessions' },
+        { name: 'averageSessionDuration' },
+        { name: 'bounceRate' },
+      ],
+      dimensions: [
+        { name: 'date' },
+      ],
+    };
+
+    try {
+      const response = await gapi.client.request({
+        path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + property.id + ':runReport',
+        method: 'POST',
+        body: request,
+      });
+
+      allData.push({
+        propertyId: property.id,
+        propertyName: property.name,
+        data: response.result,
+      });
+    } catch (error) {
+      console.error(`Error fetching data for ${property.name}:`, error);
+      throw new Error(`Failed to fetch data for ${property.name}: ${error.result?.error?.message || error.message}`);
+    }
+  }
+
+  return allData;
+}
+
 // ===================================
 // Dashboard Updates
 // ===================================
@@ -452,28 +620,53 @@ async function fetchGA4Data(propertyId, dateRanges) {
 /**
  * Update dashboard with fetched data
  */
-function updateDashboard(data, dateRanges) {
-  if (!data.rows || data.rows.length === 0) {
-    showMessage('configMessage', 'No data available for the selected period', 'error');
-    return;
+function updateDashboard(data, dateRangesOrRange, mode = 'time', properties = null) {
+  if (mode === 'time') {
+    // Time comparison mode: existing logic
+    if (!data.rows || data.rows.length === 0) {
+      showMessage('configMessage', 'No data available for the selected period', 'error');
+      return;
+    }
+
+    // Separate data by date range
+    const primaryData = data.rows.filter(row => row.dimensionValues[1]?.value === 'primary_period' || !row.dimensionValues[1]);
+    const comparisonData = data.rows.filter(row => row.dimensionValues[1]?.value === 'comparison_period');
+
+    // Calculate totals for each period
+    const primaryTotals = calculateTotals(primaryData);
+    const comparisonTotals = calculateTotals(comparisonData);
+
+    // Update metric cards
+    updateMetricCards(primaryTotals, comparisonTotals);
+
+    // Update charts
+    updateCharts(primaryData, comparisonData, primaryTotals, comparisonTotals);
+
+    // Update data table
+    updateDataTable(data, dateRangesOrRange);
+
+  } else {
+    // Property comparison mode: new logic
+    if (!data || data.length === 0) {
+      showMessage('configMessage', 'No data available for the selected properties', 'error');
+      return;
+    }
+
+    // Calculate totals for each property
+    const propertyTotals = data.map(propertyData => ({
+      propertyName: propertyData.propertyName,
+      totals: calculateTotals(propertyData.data.rows || [])
+    }));
+
+    // Update metric cards for property comparison
+    updateMetricCardsForProperties(propertyTotals);
+
+    // Update charts for property comparison
+    updateChartsForProperties(data, propertyTotals);
+
+    // Update data table for property comparison
+    updateDataTableForProperties(data, dateRangesOrRange);
   }
-
-  // Separate data by date range
-  const primaryData = data.rows.filter(row => row.dimensionValues[1]?.value === 'primary_period' || !row.dimensionValues[1]);
-  const comparisonData = data.rows.filter(row => row.dimensionValues[1]?.value === 'comparison_period');
-
-  // Calculate totals for each period
-  const primaryTotals = calculateTotals(primaryData);
-  const comparisonTotals = calculateTotals(comparisonData);
-
-  // Update metric cards
-  updateMetricCards(primaryTotals, comparisonTotals);
-
-  // Update charts
-  updateCharts(primaryData, comparisonData, primaryTotals, comparisonTotals);
-
-  // Update data table
-  updateDataTable(data, dateRanges);
 }
 
 /**
@@ -745,4 +938,132 @@ function showMessage(elementId, message, type) {
       element.classList.add('hidden');
     }, 5000);
   }
+}
+
+// ===================================
+// Property Comparison Functions
+// ===================================
+
+/**
+ * Update metric cards for property comparison mode
+ */
+function updateMetricCardsForProperties(propertyTotals) {
+  // Use first property as baseline, show comparison to it
+  const baseline = propertyTotals[0];
+  const comparison = propertyTotals[1] || baseline;
+
+  document.getElementById('metricUsers').textContent = formatNumber(baseline.totals.users);
+  updateComparison('comparisonUsers', baseline.totals.users, comparison.totals.users);
+
+  document.getElementById('metricSessions').textContent = formatNumber(baseline.totals.sessions);
+  updateComparison('comparisonSessions', baseline.totals.sessions, comparison.totals.sessions);
+
+  document.getElementById('metricPageViews').textContent = formatNumber(baseline.totals.pageViews);
+  updateComparison('comparisonPageViews', baseline.totals.pageViews, comparison.totals.pageViews);
+
+  document.getElementById('metricEngagement').textContent = formatPercent(baseline.totals.engagementRate);
+  updateComparison('comparisonEngagement', baseline.totals.engagementRate, comparison.totals.engagementRate);
+}
+
+/**
+ * Update charts for property comparison mode
+ */
+function updateChartsForProperties(propertyData, propertyTotals) {
+  // Destroy existing charts
+  if (trendChart) trendChart.destroy();
+  if (comparisonChart) comparisonChart.destroy();
+
+  // Get dates from first property
+  const firstProperty = propertyData[0].data;
+  const labels = (firstProperty.rows || []).map(row => {
+    const date = row.dimensionValues[0].value;
+    return `${date.substring(4, 6)}/${date.substring(6, 8)}`;
+  });
+
+  // Trend Chart - Line chart showing daily trends for each property
+  const trendCtx = document.getElementById('trendChart').getContext('2d');
+  const colors = [
+    'rgb(99, 102, 241)',
+    'rgb(139, 92, 246)',
+    'rgb(16, 185, 129)',
+    'rgb(245, 158, 11)',
+    'rgb(239, 68, 68)'
+  ];
+
+  const datasets = propertyData.map((property, index) => ({
+    label: property.propertyName,
+    data: (property.data.rows || []).map(row => parseFloat(row.metricValues[0].value)),
+    borderColor: colors[index % colors.length],
+    backgroundColor: colors[index % colors.length].replace('rgb', 'rgba').replace(')', ', 0.1)'),
+    tension: 0.4,
+  }));
+
+  trendChart = new Chart(trendCtx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets,
+    },
+    options: getChartOptions('Daily User Trends by Property'),
+  });
+
+  // Comparison Chart - Bar chart comparing totals across properties
+  const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+
+  comparisonChart = new Chart(comparisonCtx, {
+    type: 'bar',
+    data: {
+      labels: propertyTotals.map(p => p.propertyName),
+      datasets: [
+        {
+          label: 'Users',
+          data: propertyTotals.map(p => p.totals.users),
+          backgroundColor: 'rgba(99, 102, 241, 0.8)',
+        },
+        {
+          label: 'Sessions',
+          data: propertyTotals.map(p => p.totals.sessions),
+          backgroundColor: 'rgba(139, 92, 246, 0.8)',
+        },
+        {
+          label: 'Page Views',
+          data: propertyTotals.map(p => p.totals.pageViews),
+          backgroundColor: 'rgba(16, 185, 129, 0.8)',
+        },
+      ],
+    },
+    options: getChartOptions('Property Comparison'),
+  });
+}
+
+/**
+ * Update data table for property comparison mode
+ */
+function updateDataTableForProperties(propertyData, dateRange) {
+  const tableContainer = document.getElementById('dataTable');
+
+  let html = '<table style="width: 100%; border-collapse: collapse;">';
+  html += '<thead><tr style="border-bottom: 1px solid var(--color-border);">';
+  html += '<th style="padding: var(--spacing-sm); text-align: left; color: var(--color-text-secondary);">Property</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Users</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Sessions</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Page Views</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Engagement Rate</th>';
+  html += '</tr></thead>';
+  html += '<tbody>';
+
+  propertyData.forEach(property => {
+    const totals = calculateTotals(property.data.rows || []);
+
+    html += `<tr style="border-bottom: 1px solid var(--color-border);">`;
+    html += `<td style="padding: var(--spacing-sm); color: var(--color-text-primary); font-weight: 600;">${property.propertyName}</td>`;
+    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.users)}</td>`;
+    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.sessions)}</td>`;
+    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.pageViews)}</td>`;
+    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatPercent(totals.engagementRate)}</td>`;
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  tableContainer.innerHTML = html;
 }

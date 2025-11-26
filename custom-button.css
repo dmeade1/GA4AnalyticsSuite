@@ -1,0 +1,12 @@
+/* Override Google Sign-In button colors */
+#signInButton iframe {
+    filter: none !important;
+}
+
+#signInButton div[role="button"] {
+    border-color: #D9782D !important;
+}
+
+#signInButton div[role="button"]:hover {
+    background-color: rgba(217, 120, 45, 0.1) !important;
+}

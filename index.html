@@ -10,9 +10,10 @@
 
   <!-- Stylesheets -->
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="custom-button.css">
 
   <!-- Google Identity Services -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://accounts.google.com/gsi/client"></script>
 
   <!-- Google API Client Library -->
   <script src="https://apis.google.com/js/api.js"></script>
@@ -27,9 +28,15 @@
     <div class="container">
       <div class="header-content">
         <div class="logo">
-          <div class="logo-icon">GA</div>
+          <div class="logo-icon"
+            style="background: transparent !important; box-shadow: none !important; border: none !important; width: 48px !important; height: 48px !important; padding: 0 !important;">
+            <img src="rmsmc-logo.png" alt="RMSMC Logo"
+              style="max-width: 42px; max-height: 42px; width: auto; height: auto;">
+          </div>
           <div class="logo-text">
-            <h1>Analytics Suite</h1>
+            <h1
+              style="color: #0f172a !important; background: none !important; -webkit-text-fill-color: currentColor !important;">
+              Analytics Suite</h1>
             <p>RMSMC Performance Dashboard</p>
           </div>
         </div>
@@ -78,8 +85,17 @@
         </div>
 
         <div class="grid grid-2">
-          <!-- GA4 Property Configuration -->
+          <!-- Comparison Mode Selector -->
           <div class="form-group">
+            <label class="form-label" for="comparisonMode">Comparison Type</label>
+            <select id="comparisonMode" class="form-select" aria-label="Comparison Mode">
+              <option value="time">Time Period Comparison</option>
+              <option value="property">Property Comparison</option>
+            </select>
+          </div>
+
+          <!-- GA4 Property Configuration (Time Comparison Mode) -->
+          <div class="form-group" id="singlePropertyGroup">
             <label class="form-label" for="propertyId">Select Property</label>
             <select id="propertyId" class="form-select" aria-label="Select GA4 Property">
               <option value="" disabled selected>Choose a property...</option>
@@ -90,9 +106,36 @@
               <option value="352975714">College Avenue</option>
             </select>
           </div>
+        </div>
 
-          <!-- Date Range Preset -->
+        <!-- Multi-Property Selection (Property Comparison Mode) -->
+        <div id="multiPropertyGroup" class="hidden">
           <div class="form-group">
+            <label class="form-label">Select Properties to Compare</label>
+            <div class="property-checkboxes">
+              <label class="checkbox-label">
+                <input type="checkbox" name="properties" value="321341958"> Collegian
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" name="properties" value="352970688"> KCSU
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" name="properties" value="352990478"> RMSMC
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" name="properties" value="397333725"> Fifty03'
+              </label>
+              <label class="checkbox-label">
+                <input type="checkbox" name="properties" value="352975714"> College Avenue
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Date Range Configuration -->
+        <div class="grid grid-2">
+          <!-- Date Range Preset (shown in Time Comparison Mode) -->
+          <div class="form-group" id="dateRangePresetGroup">
             <label class="form-label" for="dateRangePreset">Date Range Comparison</label>
             <select id="dateRangePreset" class="form-select" aria-label="Date Range Preset">
               <option value="7days">Last 7 Days vs Previous 7 Days</option>
@@ -103,11 +146,25 @@
               <option value="custom">Custom Date Ranges</option>
             </select>
           </div>
+
+          <!-- Single Date Range (shown in Property Comparison Mode) -->
+          <div class="form-group hidden" id="singleDateRangeGroup">
+            <label class="form-label" for="singleDateRange">Date Range</label>
+            <select id="singleDateRange" class="form-select" aria-label="Single Date Range">
+              <option value="7days">Last 7 Days</option>
+              <option value="30days">Last 30 Days</option>
+              <option value="90days">Last 90 Days</option>
+              <option value="month">This Month</option>
+              <option value="year">This Year</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
         </div>
 
-        <!-- Custom Date Ranges (shown when custom is selected) -->
+        <!-- Custom Date Ranges -->
         <div id="customDateRanges" class="hidden">
-          <div class="grid grid-2">
+          <!-- Time Comparison: Two date ranges -->
+          <div id="customTimeRanges" class="grid grid-2">
             <div class="form-group">
               <label class="form-label" for="startDate1">Primary Period Start</label>
               <input type="date" id="startDate1" class="form-input" aria-label="Primary Period Start Date">
@@ -123,6 +180,18 @@
             <div class="form-group">
               <label class="form-label" for="endDate2">Comparison Period End</label>
               <input type="date" id="endDate2" class="form-input" aria-label="Comparison Period End Date">
+            </div>
+          </div>
+
+          <!-- Property Comparison: Single date range -->
+          <div id="customPropertyRanges" class="grid grid-2 hidden">
+            <div class="form-group">
+              <label class="form-label" for="startDateSingle">Start Date</label>
+              <input type="date" id="startDateSingle" class="form-input" aria-label="Start Date">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="endDateSingle">End Date</label>
+              <input type="date" id="endDateSingle" class="form-input" aria-label="End Date">
             </div>
           </div>
         </div>
@@ -234,6 +303,9 @@
       </div>
     </div>
   </main>
+
+  <!-- Configuration -->
+  <script src="config.js"></script>
 
   <!-- Application Script -->
   <script src="app.js"></script>
