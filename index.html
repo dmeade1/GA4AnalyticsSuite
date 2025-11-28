@@ -132,6 +132,20 @@
           </div>
         </div>
 
+        <!-- Content Filters -->
+        <div class="card-section mt-lg">
+          <h4 class="text-sm font-semibold mb-sm">Content Filters</h4>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="enableExcludeFilter"> Exclude Page Path
+            </label>
+            <div id="excludeFilterInputGroup" class="mt-sm hidden">
+              <label class="form-label text-xs" for="excludePagePath">Exclude paths containing:</label>
+              <input type="text" id="excludePagePath" class="form-input" placeholder="/sponsored/" value="/sponsored/">
+            </div>
+          </div>
+        </div>
+
         <!-- Date Range Configuration -->
         <div class="grid grid-2">
           <!-- Date Range Preset (shown in Time Comparison Mode) -->
@@ -143,8 +157,12 @@
               <option value="90days">Last 90 Days vs Previous 90 Days</option>
               <option value="month">This Month vs Last Month</option>
               <option value="year">This Year vs Last Year</option>
+              <option value="fiscal_year">Fiscal Year (Jun 30 - Jun 30)</option>
               <option value="custom">Custom Date Ranges</option>
             </select>
+            <p id="fiscalYearHelper" class="text-xs text-muted mt-xs italic hidden">
+              *Fiscal Year runs from June 30 to June 30
+            </p>
           </div>
 
           <!-- Single Date Range (shown in Property Comparison Mode) -->
@@ -156,8 +174,12 @@
               <option value="90days">Last 90 Days</option>
               <option value="month">This Month</option>
               <option value="year">This Year</option>
+              <option value="fiscal_year">Fiscal Year (Jun 30 - Jun 30)</option>
               <option value="custom">Custom Range</option>
             </select>
+            <p id="fiscalYearHelperSingle" class="text-xs text-muted mt-xs italic hidden">
+              *Fiscal Year runs from June 30 to June 30
+            </p>
           </div>
         </div>
 
@@ -209,32 +231,10 @@
       <!-- Dashboard -->
       <div id="dashboard" class="hidden">
         <!-- Metrics Grid -->
+        <!-- Metrics Grid -->
         <div class="grid grid-4 mb-xl">
+          <!-- 1. Page Views -->
           <div class="metric-card fade-in">
-            <div class="metric-header">
-              <span class="metric-label">Total Users</span>
-              <div class="metric-icon">👥</div>
-            </div>
-            <div class="metric-value" id="metricUsers">-</div>
-            <div class="metric-comparison">
-              <span id="comparisonUsers" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous period</span>
-            </div>
-          </div>
-
-          <div class="metric-card fade-in" style="animation-delay: 0.1s;">
-            <div class="metric-header">
-              <span class="metric-label">Sessions</span>
-              <div class="metric-icon">🔄</div>
-            </div>
-            <div class="metric-value" id="metricSessions">-</div>
-            <div class="metric-comparison">
-              <span id="comparisonSessions" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous period</span>
-            </div>
-          </div>
-
-          <div class="metric-card fade-in" style="animation-delay: 0.2s;">
             <div class="metric-header">
               <span class="metric-label">Page Views</span>
               <div class="metric-icon">📄</div>
@@ -242,19 +242,98 @@
             <div class="metric-value" id="metricPageViews">-</div>
             <div class="metric-comparison">
               <span id="comparisonPageViews" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous period</span>
+              <span class="text-muted">vs previous</span>
             </div>
           </div>
 
+          <!-- 2. Avg Monthly Page Views -->
+          <div class="metric-card fade-in" style="animation-delay: 0.05s;">
+            <div class="metric-header">
+              <span class="metric-label">Avg Monthly Views</span>
+              <div class="metric-icon">📅</div>
+            </div>
+            <div class="metric-value" id="metricAvgMonthlyViews">-</div>
+            <div class="metric-comparison">
+              <span id="comparisonAvgMonthlyViews" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous</span>
+            </div>
+          </div>
+
+          <!-- 3. Mobile Page Views -->
+          <div class="metric-card fade-in" style="animation-delay: 0.1s;">
+            <div class="metric-header">
+              <span class="metric-label">Mobile Page Views</span>
+              <div class="metric-icon">📱</div>
+            </div>
+            <div class="metric-value" id="metricMobileViews">-</div>
+            <div class="metric-comparison">
+              <span id="comparisonMobileViews" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous</span>
+            </div>
+          </div>
+
+          <!-- 4. Unique Visitors -->
+          <div class="metric-card fade-in" style="animation-delay: 0.2s;">
+            <div class="metric-header">
+              <span class="metric-label">Unique Visitors</span>
+              <div class="metric-icon">👥</div>
+            </div>
+            <div class="metric-value" id="metricUsers">-</div>
+            <div class="metric-comparison">
+              <span id="comparisonUsers" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous</span>
+            </div>
+          </div>
+
+          <!-- 5. Sessions -->
           <div class="metric-card fade-in" style="animation-delay: 0.3s;">
             <div class="metric-header">
-              <span class="metric-label">Engagement Rate</span>
-              <div class="metric-icon">⚡</div>
+              <span class="metric-label">Sessions</span>
+              <div class="metric-icon">🔄</div>
             </div>
-            <div class="metric-value" id="metricEngagement">-</div>
+            <div class="metric-value" id="metricSessions">-</div>
             <div class="metric-comparison">
-              <span id="comparisonEngagement" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous period</span>
+              <span id="comparisonSessions" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous</span>
+            </div>
+          </div>
+
+          <!-- 6. Avg Events Per Session -->
+          <div class="metric-card fade-in" style="animation-delay: 0.4s;">
+            <div class="metric-header">
+              <span class="metric-label">Avg Events / Session</span>
+              <div class="metric-icon">📑</div>
+            </div>
+            <div class="metric-value" id="metricPagesPerSession">-</div>
+            <div class="metric-comparison">
+              <span id="comparisonPagesPerSession" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous</span>
+            </div>
+          </div>
+
+          <!-- 7. Avg Time on Site -->
+          <div class="metric-card fade-in" style="animation-delay: 0.5s;">
+            <div class="metric-header">
+              <span class="metric-label">Avg Time on Site</span>
+              <div class="metric-icon">⏱️</div>
+            </div>
+            <div class="metric-value" id="metricAvgTime">-</div>
+            <div class="metric-comparison">
+              <span id="comparisonAvgTime" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous</span>
+            </div>
+          </div>
+
+          <!-- 8. % Traffic from Social Media -->
+          <div class="metric-card fade-in" style="animation-delay: 0.6s;">
+            <div class="metric-header">
+              <span class="metric-label">% Social Traffic</span>
+              <div class="metric-icon">💬</div>
+            </div>
+            <div class="metric-value" id="metricSocialTraffic">-</div>
+            <div class="metric-comparison">
+              <span id="comparisonSocialTraffic" class="metric-change neutral">-</span>
+              <span class="text-muted">vs previous</span>
             </div>
           </div>
         </div>

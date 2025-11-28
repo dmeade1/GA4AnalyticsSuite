@@ -13,6 +13,18 @@ let accessToken = null;
 let currentPropertyId = null;
 let comparisonMode = 'time'; // 'time' or 'property'
 
+// Configurable Metrics
+const METRICS = [
+  { name: 'totalUsers' },
+  { name: 'sessions' },
+  { name: 'screenPageViews' },
+  { name: 'engagedSessions' },
+  { name: 'averageSessionDuration' },
+  { name: 'bounceRate' },
+  { name: 'eventCount' },
+  { name: 'userEngagementDuration' },
+];
+
 // Chart instances
 let trendChart = null;
 let comparisonChart = null;
@@ -234,6 +246,16 @@ function setupEventListeners() {
   document.getElementById('propertyId').addEventListener('change', (e) => {
     currentPropertyId = e.target.value.trim();
   });
+
+  // Filter checkbox
+  document.getElementById('enableExcludeFilter').addEventListener('change', (e) => {
+    const inputGroup = document.getElementById('excludeFilterInputGroup');
+    if (e.target.checked) {
+      inputGroup.classList.remove('hidden');
+    } else {
+      inputGroup.classList.add('hidden');
+    }
+  });
 }
 
 /**
@@ -271,13 +293,19 @@ function handleDateRangeChange(e) {
   const customRanges = document.getElementById('customDateRanges');
   const customTimeRanges = document.getElementById('customTimeRanges');
   const customPropertyRanges = document.getElementById('customPropertyRanges');
+  const fiscalYearHelper = document.getElementById('fiscalYearHelper');
 
   if (e.target.value === 'custom') {
     customRanges.classList.remove('hidden');
     customTimeRanges.classList.remove('hidden');
     customPropertyRanges.classList.add('hidden');
+    fiscalYearHelper.classList.add('hidden');
+  } else if (e.target.value === 'fiscal_year') {
+    customRanges.classList.add('hidden');
+    fiscalYearHelper.classList.remove('hidden');
   } else {
     customRanges.classList.add('hidden');
+    fiscalYearHelper.classList.add('hidden');
   }
 }
 
@@ -288,13 +316,19 @@ function handleSingleDateRangeChange(e) {
   const customRanges = document.getElementById('customDateRanges');
   const customTimeRanges = document.getElementById('customTimeRanges');
   const customPropertyRanges = document.getElementById('customPropertyRanges');
+  const fiscalYearHelperSingle = document.getElementById('fiscalYearHelperSingle');
 
   if (e.target.value === 'custom') {
     customRanges.classList.remove('hidden');
     customTimeRanges.classList.add('hidden');
     customPropertyRanges.classList.remove('hidden');
+    fiscalYearHelperSingle.classList.add('hidden');
+  } else if (e.target.value === 'fiscal_year') {
+    customRanges.classList.add('hidden');
+    fiscalYearHelperSingle.classList.remove('hidden');
   } else {
     customRanges.classList.add('hidden');
+    fiscalYearHelperSingle.classList.add('hidden');
   }
 }
 
@@ -396,6 +430,32 @@ function getDateRanges() {
       comparisonEnd.setDate(comparisonEnd.getDate() - 1);
       comparisonStart = new Date(comparisonEnd.getFullYear(), 0, 1);
       break;
+
+    case 'fiscal_year':
+      // Fiscal Year: June 30 to June 30
+      // If today is before June 30, current FY ends this year June 30.
+      // If today is after June 30, current FY ends next year June 30.
+      const currentYear = today.getFullYear();
+      const isBeforeJune30 = today.getMonth() < 5 || (today.getMonth() === 5 && today.getDate() < 30);
+
+      const fyEndYear = isBeforeJune30 ? currentYear : currentYear + 1;
+
+      primaryEnd = new Date(fyEndYear, 5, 30); // June 30
+      primaryStart = new Date(fyEndYear - 1, 5, 30); // June 30 previous year
+
+      comparisonEnd = new Date(primaryStart);
+      comparisonStart = new Date(fyEndYear - 2, 5, 30);
+      break;
+
+    default:
+      // Default to 7 days if no match
+      primaryEnd = new Date(today);
+      primaryStart = new Date(today);
+      primaryStart.setDate(today.getDate() - 7);
+      comparisonEnd = new Date(primaryStart);
+      comparisonStart = new Date(primaryStart);
+      comparisonStart.setDate(primaryStart.getDate() - 7);
+      break;
   }
 
   return [
@@ -457,12 +517,57 @@ function getSingleDateRange() {
       end = new Date(today);
       start = new Date(today.getFullYear(), 0, 1);
       break;
+
+    case 'fiscal_year':
+      // Fiscal Year: June 30 to June 30
+      // If today is before June 30, current FY ends this year June 30.
+      // If today is after June 30, current FY ends next year June 30.
+      const currentYear = today.getFullYear();
+      const isBeforeJune30 = today.getMonth() < 5 || (today.getMonth() === 5 && today.getDate() < 30);
+
+      const fyEndYear = isBeforeJune30 ? currentYear : currentYear + 1;
+
+      end = new Date(fyEndYear, 5, 30); // June 30
+      start = new Date(fyEndYear - 1, 5, 30); // June 30 previous year
+      break;
+
+    default:
+      // Default to 7 days
+      end = new Date(today);
+      start = new Date(today);
+      start.setDate(today.getDate() - 7);
+      break;
   }
 
   return {
     startDate: formatDate(start),
     endDate: formatDate(end),
   };
+}
+
+/**
+ * Build dimension filter from UI inputs
+ */
+function buildDimensionFilter() {
+  const enableExclude = document.getElementById('enableExcludeFilter').checked;
+  const excludePath = document.getElementById('excludePagePath').value.trim();
+
+  if (enableExclude && excludePath) {
+    return {
+      notExpression: {
+        filter: {
+          fieldName: 'pagePath',
+          stringFilter: {
+            matchType: 'CONTAINS',
+            value: excludePath,
+            caseSensitive: false
+          }
+        }
+      }
+    };
+  }
+
+  return null;
 }
 
 // ===================================
@@ -492,8 +597,11 @@ async function handleFetchData() {
       // Get date ranges
       const dateRanges = getDateRanges();
 
+      // Build dimension filter
+      const dimensionFilter = buildDimensionFilter();
+
       // Fetch data from GA4
-      const data = await fetchGA4Data(propertyId, dateRanges);
+      const data = await fetchGA4Data(propertyId, dateRanges, dimensionFilter);
 
       // Update dashboard
       updateDashboard(data, dateRanges, 'time');
@@ -514,8 +622,11 @@ async function handleFetchData() {
       // Get single date range
       const dateRange = getSingleDateRange();
 
+      // Build dimension filter
+      const dimensionFilter = buildDimensionFilter();
+
       // Fetch data for all properties
-      const multiPropertyData = await fetchMultiPropertyData(selectedProperties, dateRange);
+      const multiPropertyData = await fetchMultiPropertyData(selectedProperties, dateRange, dimensionFilter);
 
       // Update dashboard
       updateDashboard(multiPropertyData, dateRange, 'property', selectedProperties);
@@ -535,32 +646,77 @@ async function handleFetchData() {
 
 /**
  * Fetch data from GA4 Data API
+ * Fetches 3 reports: Main (metrics), Device (mobile views), Channel (social traffic)
  */
-async function fetchGA4Data(propertyId, dateRanges) {
-  const request = {
+async function fetchGA4Data(propertyId, dateRanges, dimensionFilter = null) {
+  // 1. Main Report (Daily Trend)
+  const mainRequest = {
     property: `properties/${propertyId}`,
     dateRanges: dateRanges,
-    metrics: [
-      { name: 'totalUsers' },
-      { name: 'sessions' },
-      { name: 'screenPageViews' },
-      { name: 'engagedSessions' },
-      { name: 'averageSessionDuration' },
-      { name: 'bounceRate' },
-    ],
-    dimensions: [
-      { name: 'date' },
-    ],
+    metrics: METRICS,
+    dimensions: [{ name: 'date' }],
   };
 
-  try {
-    const response = await gapi.client.request({
-      path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + propertyId + ':runReport',
-      method: 'POST',
-      body: request,
-    });
+  // 2. Device Report (for Mobile Page Views)
+  const deviceRequest = {
+    property: `properties/${propertyId}`,
+    dateRanges: dateRanges,
+    metrics: [{ name: 'screenPageViews' }],
+    dimensions: [{ name: 'deviceCategory' }],
+  };
 
-    return response.result;
+  // 3. Channel Report (for Social Traffic)
+  const channelRequest = {
+    property: `properties/${propertyId}`,
+    dateRanges: dateRanges,
+    metrics: [{ name: 'sessions' }],
+    dimensions: [{ name: 'sessionDefaultChannelGroup' }],
+  };
+
+  // 4. Summary Report (No Dimensions - Accurate Totals)
+  const summaryRequest = {
+    property: `properties/${propertyId}`,
+    dateRanges: dateRanges,
+    metrics: METRICS,
+  };
+
+  if (dimensionFilter) {
+    mainRequest.dimensionFilter = dimensionFilter;
+    deviceRequest.dimensionFilter = dimensionFilter;
+    channelRequest.dimensionFilter = dimensionFilter;
+    summaryRequest.dimensionFilter = dimensionFilter;
+  }
+
+  try {
+    const [mainResponse, deviceResponse, channelResponse, summaryResponse] = await Promise.all([
+      gapi.client.request({
+        path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + propertyId + ':runReport',
+        method: 'POST',
+        body: mainRequest,
+      }),
+      gapi.client.request({
+        path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + propertyId + ':runReport',
+        method: 'POST',
+        body: deviceRequest,
+      }),
+      gapi.client.request({
+        path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + propertyId + ':runReport',
+        method: 'POST',
+        body: channelRequest,
+      }),
+      gapi.client.request({
+        path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + propertyId + ':runReport',
+        method: 'POST',
+        body: summaryRequest,
+      }),
+    ]);
+
+    return {
+      main: mainResponse.result,
+      device: deviceResponse.result,
+      channel: channelResponse.result,
+      summary: summaryResponse.result,
+    };
   } catch (error) {
     throw new Error(error.result?.error?.message || 'Failed to fetch GA4 data');
   }
@@ -569,40 +725,93 @@ async function fetchGA4Data(propertyId, dateRanges) {
 /**
  * Fetch data from multiple GA4 properties
  */
-async function fetchMultiPropertyData(properties, dateRange) {
+async function fetchMultiPropertyData(properties, dateRange, dimensionFilter = null) {
   const allData = [];
 
   for (const property of properties) {
-    const request = {
+    // 1. Main Report
+    const mainRequest = {
       property: `properties/${property.id}`,
       dateRanges: [{
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       }],
-      metrics: [
-        { name: 'totalUsers' },
-        { name: 'sessions' },
-        { name: 'screenPageViews' },
-        { name: 'engagedSessions' },
-        { name: 'averageSessionDuration' },
-        { name: 'bounceRate' },
-      ],
-      dimensions: [
-        { name: 'date' },
-      ],
+      metrics: METRICS,
+      dimensions: [{ name: 'date' }],
     };
 
+    // 2. Device Report
+    const deviceRequest = {
+      property: `properties/${property.id}`,
+      dateRanges: [{
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      }],
+      metrics: [{ name: 'screenPageViews' }],
+      dimensions: [{ name: 'deviceCategory' }],
+    };
+
+    // 3. Channel Report
+    const channelRequest = {
+      property: `properties/${property.id}`,
+      dateRanges: [{
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      }],
+      metrics: [{ name: 'sessions' }],
+      dimensions: [{ name: 'sessionDefaultChannelGroup' }],
+    };
+
+    // 4. Summary Report
+    const summaryRequest = {
+      property: `properties/${property.id}`,
+      dateRanges: [{
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      }],
+      metrics: METRICS,
+    };
+
+    if (dimensionFilter) {
+      mainRequest.dimensionFilter = dimensionFilter;
+      deviceRequest.dimensionFilter = dimensionFilter;
+      channelRequest.dimensionFilter = dimensionFilter;
+      summaryRequest.dimensionFilter = dimensionFilter;
+    }
+
     try {
-      const response = await gapi.client.request({
-        path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + property.id + ':runReport',
-        method: 'POST',
-        body: request,
-      });
+      const [mainResponse, deviceResponse, channelResponse, summaryResponse] = await Promise.all([
+        gapi.client.request({
+          path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + property.id + ':runReport',
+          method: 'POST',
+          body: mainRequest,
+        }),
+        gapi.client.request({
+          path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + property.id + ':runReport',
+          method: 'POST',
+          body: deviceRequest,
+        }),
+        gapi.client.request({
+          path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + property.id + ':runReport',
+          method: 'POST',
+          body: channelRequest,
+        }),
+        gapi.client.request({
+          path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + property.id + ':runReport',
+          method: 'POST',
+          body: summaryRequest,
+        }),
+      ]);
 
       allData.push({
         propertyId: property.id,
         propertyName: property.name,
-        data: response.result,
+        data: {
+          main: mainResponse.result,
+          device: deviceResponse.result,
+          channel: channelResponse.result,
+          summary: summaryResponse.result,
+        },
       });
     } catch (error) {
       console.error(`Error fetching data for ${property.name}:`, error);
@@ -624,55 +833,57 @@ function updateDashboard(data, dateRangesOrRange, mode = 'time', properties = nu
   if (mode === 'time') {
     // Time comparison mode: existing logic
     if (!data.rows || data.rows.length === 0) {
-      showMessage('configMessage', 'No data available for the selected period', 'error');
-      return;
+      if (!data.main.rows || data.main.rows.length === 0) {
+        showMessage('configMessage', 'No data available for the selected period', 'error');
+        return;
+      }
+
+      // Separate data by date range
+      const primaryData = data.main.rows.filter(row => row.dimensionValues[1]?.value === 'primary_period' || !row.dimensionValues[1]);
+      const comparisonData = data.main.rows.filter(row => row.dimensionValues[1]?.value === 'comparison_period');
+
+      // Calculate totals for each period
+      const primaryTotals = calculateTotals(primaryData, data.device, data.channel, 'primary_period');
+      const comparisonTotals = calculateTotals(comparisonData, data.device, data.channel, 'comparison_period');
+
+      // Update metric cards
+      updateMetricCards(primaryTotals, comparisonTotals);
+
+      // Update charts
+      updateCharts(primaryData, comparisonData, primaryTotals, comparisonTotals);
+
+      // Update data table
+      updateDataTable(data.main, dateRangesOrRange);
+
+    } else {
+      // Property comparison mode: new logic
+      if (!data || data.length === 0) {
+        showMessage('configMessage', 'No data available for the selected properties', 'error');
+        return;
+      }
+
+      // Calculate totals for each property
+      const propertyTotals = data.map(propertyData => ({
+        propertyName: propertyData.propertyName,
+        totals: calculateTotals(propertyData.data.main.rows || [], propertyData.data.device, propertyData.data.channel)
+      }));
+
+      // Update metric cards for property comparison
+      updateMetricCardsForProperties(propertyTotals);
+
+      // Update charts for property comparison
+      updateChartsForProperties(data, propertyTotals);
+
+      // Update data table for property comparison
+      updateDataTableForProperties(data, dateRangesOrRange);
     }
-
-    // Separate data by date range
-    const primaryData = data.rows.filter(row => row.dimensionValues[1]?.value === 'primary_period' || !row.dimensionValues[1]);
-    const comparisonData = data.rows.filter(row => row.dimensionValues[1]?.value === 'comparison_period');
-
-    // Calculate totals for each period
-    const primaryTotals = calculateTotals(primaryData);
-    const comparisonTotals = calculateTotals(comparisonData);
-
-    // Update metric cards
-    updateMetricCards(primaryTotals, comparisonTotals);
-
-    // Update charts
-    updateCharts(primaryData, comparisonData, primaryTotals, comparisonTotals);
-
-    // Update data table
-    updateDataTable(data, dateRangesOrRange);
-
-  } else {
-    // Property comparison mode: new logic
-    if (!data || data.length === 0) {
-      showMessage('configMessage', 'No data available for the selected properties', 'error');
-      return;
-    }
-
-    // Calculate totals for each property
-    const propertyTotals = data.map(propertyData => ({
-      propertyName: propertyData.propertyName,
-      totals: calculateTotals(propertyData.data.rows || [])
-    }));
-
-    // Update metric cards for property comparison
-    updateMetricCardsForProperties(propertyTotals);
-
-    // Update charts for property comparison
-    updateChartsForProperties(data, propertyTotals);
-
-    // Update data table for property comparison
-    updateDataTableForProperties(data, dateRangesOrRange);
   }
 }
 
 /**
- * Calculate totals from row data
+ * Calculate totals from row data and auxiliary reports
  */
-function calculateTotals(rows) {
+function calculateTotals(rows, deviceData = null, channelData = null, summaryData = null, periodName = 'primary_period') {
   const totals = {
     users: 0,
     sessions: 0,
@@ -680,25 +891,98 @@ function calculateTotals(rows) {
     engagedSessions: 0,
     avgSessionDuration: 0,
     bounceRate: 0,
+    eventCount: 0,
+    userEngagementDuration: 0,
+    mobilePageViews: 0,
+    socialSessions: 0,
+    avgMonthlyPageViews: 0,
   };
 
-  if (!rows || rows.length === 0) return totals;
+  // Use Summary Data if available (More accurate for totals)
+  if (summaryData && summaryData.rows && summaryData.rows.length > 0) {
+    const metrics = summaryData.rows[0].metricValues;
+    totals.users = parseFloat(metrics[0]?.value || 0);
+    totals.sessions = parseFloat(metrics[1]?.value || 0);
+    totals.pageViews = parseFloat(metrics[2]?.value || 0);
+    totals.engagedSessions = parseFloat(metrics[3]?.value || 0);
+    totals.avgSessionDuration = parseFloat(metrics[4]?.value || 0);
+    totals.bounceRate = parseFloat(metrics[5]?.value || 0);
+    totals.eventCount = parseFloat(metrics[6]?.value || 0);
+    totals.userEngagementDuration = parseFloat(metrics[7]?.value || 0);
+  } else if (rows && rows.length > 0) {
+    // Fallback to summing rows (Less accurate for users)
+    rows.forEach(row => {
+      const metrics = row.metricValues;
+      totals.users += parseFloat(metrics[0]?.value || 0);
+      totals.sessions += parseFloat(metrics[1]?.value || 0);
+      totals.pageViews += parseFloat(metrics[2]?.value || 0);
+      totals.engagedSessions += parseFloat(metrics[3]?.value || 0);
+      totals.avgSessionDuration += parseFloat(metrics[4]?.value || 0);
+      totals.bounceRate += parseFloat(metrics[5]?.value || 0);
+      totals.eventCount += parseFloat(metrics[6]?.value || 0);
+      totals.userEngagementDuration += parseFloat(metrics[7]?.value || 0);
+    });
+    // Average the averages if summing rows
+    const rowCount = rows.length;
+    if (rowCount > 0) {
+      totals.avgSessionDuration = totals.avgSessionDuration / rowCount;
+      totals.bounceRate = totals.bounceRate / rowCount;
+    }
+  }
 
-  rows.forEach(row => {
-    const metrics = row.metricValues;
-    totals.users += parseFloat(metrics[0]?.value || 0);
-    totals.sessions += parseFloat(metrics[1]?.value || 0);
-    totals.pageViews += parseFloat(metrics[2]?.value || 0);
-    totals.engagedSessions += parseFloat(metrics[3]?.value || 0);
-    totals.avgSessionDuration += parseFloat(metrics[4]?.value || 0);
-    totals.bounceRate += parseFloat(metrics[5]?.value || 0);
-  });
+  // Mobile Page Views from Device Report
+  if (deviceData && deviceData.rows) {
+    deviceData.rows.forEach(row => {
+      // Check if row belongs to current period (if date dimension exists)
+      // If summary report (no date dimension), we assume it matches the period
+      const rowPeriod = row.dimensionValues.length > 1 ? row.dimensionValues[1]?.value : periodName;
+      if (rowPeriod !== periodName) return;
 
-  // Calculate averages
-  const rowCount = rows.length;
-  totals.avgSessionDuration = totals.avgSessionDuration / rowCount;
-  totals.bounceRate = totals.bounceRate / rowCount;
-  totals.engagementRate = totals.sessions > 0 ? (totals.engagedSessions / totals.sessions) * 100 : 0;
+      const category = row.dimensionValues[0].value.toLowerCase(); // dimension[0] is deviceCategory
+      if (category === 'mobile' || category === 'tablet') {
+        totals.mobilePageViews += parseFloat(row.metricValues[0].value);
+      }
+    });
+  }
+
+  // Social Traffic from Channel Report
+  if (channelData && channelData.rows) {
+    channelData.rows.forEach(row => {
+      const rowPeriod = row.dimensionValues.length > 1 ? row.dimensionValues[1]?.value : periodName;
+      if (rowPeriod !== periodName) return;
+
+      const channel = row.dimensionValues[0].value.toLowerCase(); // dimension[0] is sessionDefaultChannelGroup
+      if (channel.includes('social')) {
+        totals.socialSessions += parseFloat(row.metricValues[0].value);
+      }
+    });
+  }
+
+  // Derived Metrics
+  totals.socialTrafficPercent = totals.sessions > 0 ? (totals.socialSessions / totals.sessions) * 100 : 0;
+
+  // Avg Events Per Session (User requested "Average Pages per Session (Events)")
+  totals.avgPagesPerSession = totals.sessions > 0 ? totals.eventCount / totals.sessions : 0;
+
+  // Avg Time on Site (User Engagement Duration / Total Users)
+  totals.avgTimeOnSite = totals.users > 0 ? totals.userEngagementDuration / totals.users : 0;
+
+  // Avg Monthly Page Views
+  // Calculate approximate months in range based on pageViews / 12 for a year
+  // Or better: determine duration from rows if available, or just assume 12 if fiscal year?
+  // User's logic: 1,565,245 / 130,437 = 12. So it's Total / 12.
+  // We should calculate months dynamically.
+  if (rows && rows.length > 0) {
+    // Assuming rows are daily
+    const days = rows.length;
+    const months = days / 30.44;
+    totals.avgMonthlyPageViews = months > 0 ? totals.pageViews / months : 0;
+  } else {
+    // If no rows (e.g. summary only?), assume 1 month? No, we need rows to know duration.
+    // Or we can pass date range duration.
+    // For now, if rows exist, use them.
+    totals.avgMonthlyPageViews = totals.pageViews; // Fallback
+  }
 
   return totals;
 }
@@ -707,21 +991,46 @@ function calculateTotals(rows) {
  * Update metric cards
  */
 function updateMetricCards(primary, comparison) {
-  // Users
-  document.getElementById('metricUsers').textContent = formatNumber(primary.users);
-  updateComparison('comparisonUsers', primary.users, comparison.users);
-
-  // Sessions
-  document.getElementById('metricSessions').textContent = formatNumber(primary.sessions);
-  updateComparison('comparisonSessions', primary.sessions, comparison.sessions);
-
-  // Page Views
+  // 1. Page Views
   document.getElementById('metricPageViews').textContent = formatNumber(primary.pageViews);
   updateComparison('comparisonPageViews', primary.pageViews, comparison.pageViews);
 
-  // Engagement Rate
-  document.getElementById('metricEngagement').textContent = formatPercent(primary.engagementRate);
-  updateComparison('comparisonEngagement', primary.engagementRate, comparison.engagementRate);
+  // 2. Avg Monthly Page Views (New)
+  document.getElementById('metricAvgMonthlyViews').textContent = formatNumber(primary.avgMonthlyPageViews);
+  updateComparison('comparisonAvgMonthlyViews', primary.avgMonthlyPageViews, comparison.avgMonthlyPageViews);
+
+  // 3. Mobile Page Views
+  document.getElementById('metricMobileViews').textContent = formatNumber(primary.mobilePageViews);
+  updateComparison('comparisonMobileViews', primary.mobilePageViews, comparison.mobilePageViews);
+
+  // 4. Unique Visitors (Total Users)
+  document.getElementById('metricUsers').textContent = formatNumber(primary.users);
+  updateComparison('comparisonUsers', primary.users, comparison.users);
+
+  // 5. Sessions
+  document.getElementById('metricSessions').textContent = formatNumber(primary.sessions);
+  updateComparison('comparisonSessions', primary.sessions, comparison.sessions);
+
+  // 6. Avg Events Per Session (Renamed from Pages/Session)
+  document.getElementById('metricPagesPerSession').textContent = primary.avgPagesPerSession.toFixed(2);
+  updateComparison('comparisonPagesPerSession', primary.avgPagesPerSession, comparison.avgPagesPerSession);
+
+  // 7. Avg Time on Site (Seconds -> MM:SS)
+  document.getElementById('metricAvgTime').textContent = formatDuration(primary.avgTimeOnSite);
+  updateComparison('comparisonAvgTime', primary.avgTimeOnSite, comparison.avgTimeOnSite);
+
+  // 8. % Traffic from Social Media
+  document.getElementById('metricSocialTraffic').textContent = formatPercent(primary.socialTrafficPercent);
+  updateComparison('comparisonSocialTraffic', primary.socialTrafficPercent, comparison.socialTrafficPercent);
+}
+
+/**
+ * Format duration in seconds to MM:SS
+ */
+function formatDuration(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}m ${s}s`;
 }
 
 /**
@@ -952,17 +1261,33 @@ function updateMetricCardsForProperties(propertyTotals) {
   const baseline = propertyTotals[0];
   const comparison = propertyTotals[1] || baseline;
 
-  document.getElementById('metricUsers').textContent = formatNumber(baseline.totals.users);
-  updateComparison('comparisonUsers', baseline.totals.users, comparison.totals.users);
-
-  document.getElementById('metricSessions').textContent = formatNumber(baseline.totals.sessions);
-  updateComparison('comparisonSessions', baseline.totals.sessions, comparison.totals.sessions);
-
+  // 1. Page Views
   document.getElementById('metricPageViews').textContent = formatNumber(baseline.totals.pageViews);
   updateComparison('comparisonPageViews', baseline.totals.pageViews, comparison.totals.pageViews);
 
-  document.getElementById('metricEngagement').textContent = formatPercent(baseline.totals.engagementRate);
-  updateComparison('comparisonEngagement', baseline.totals.engagementRate, comparison.totals.engagementRate);
+  // 2. Mobile Page Views
+  document.getElementById('metricMobileViews').textContent = formatNumber(baseline.totals.mobilePageViews);
+  updateComparison('comparisonMobileViews', baseline.totals.mobilePageViews, comparison.totals.mobilePageViews);
+
+  // 3. Unique Visitors
+  document.getElementById('metricUsers').textContent = formatNumber(baseline.totals.users);
+  updateComparison('comparisonUsers', baseline.totals.users, comparison.totals.users);
+
+  // 4. Sessions
+  document.getElementById('metricSessions').textContent = formatNumber(baseline.totals.sessions);
+  updateComparison('comparisonSessions', baseline.totals.sessions, comparison.totals.sessions);
+
+  // 5. Avg Pages Per Session
+  document.getElementById('metricPagesPerSession').textContent = baseline.totals.avgPagesPerSession.toFixed(2);
+  updateComparison('comparisonPagesPerSession', baseline.totals.avgPagesPerSession, comparison.totals.avgPagesPerSession);
+
+  // 6. Avg Time on Site
+  document.getElementById('metricAvgTime').textContent = formatDuration(baseline.totals.avgTimeOnSite);
+  updateComparison('comparisonAvgTime', baseline.totals.avgTimeOnSite, comparison.totals.avgTimeOnSite);
+
+  // 7. % Traffic from Social Media
+  document.getElementById('metricSocialTraffic').textContent = formatPercent(baseline.totals.socialTrafficPercent);
+  updateComparison('comparisonSocialTraffic', baseline.totals.socialTrafficPercent, comparison.totals.socialTrafficPercent);
 }
 
 /**
@@ -974,7 +1299,7 @@ function updateChartsForProperties(propertyData, propertyTotals) {
   if (comparisonChart) comparisonChart.destroy();
 
   // Get dates from first property
-  const firstProperty = propertyData[0].data;
+  const firstProperty = propertyData[0].data.main;
   const labels = (firstProperty.rows || []).map(row => {
     const date = row.dimensionValues[0].value;
     return `${date.substring(4, 6)}/${date.substring(6, 8)}`;
@@ -992,7 +1317,7 @@ function updateChartsForProperties(propertyData, propertyTotals) {
 
   const datasets = propertyData.map((property, index) => ({
     label: property.propertyName,
-    data: (property.data.rows || []).map(row => parseFloat(row.metricValues[0].value)),
+    data: (property.data.main.rows || []).map(row => parseFloat(row.metricValues[0].value)),
     borderColor: colors[index % colors.length],
     backgroundColor: colors[index % colors.length].replace('rgb', 'rgba').replace(')', ', 0.1)'),
     tension: 0.4,
@@ -1045,25 +1370,32 @@ function updateDataTableForProperties(propertyData, dateRange) {
   let html = '<table style="width: 100%; border-collapse: collapse;">';
   html += '<thead><tr style="border-bottom: 1px solid var(--color-border);">';
   html += '<th style="padding: var(--spacing-sm); text-align: left; color: var(--color-text-secondary);">Property</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Page Views</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Mobile Views</th>';
   html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Users</th>';
   html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Sessions</th>';
-  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Page Views</th>';
-  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Engagement Rate</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Pages/Session</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Time on Site</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">% Social</th>';
   html += '</tr></thead>';
   html += '<tbody>';
 
   propertyData.forEach(property => {
-    const totals = calculateTotals(property.data.rows || []);
+    const totals = calculateTotals(property.data.main.rows || [], property.data.device, property.data.channel);
 
     html += `<tr style="border-bottom: 1px solid var(--color-border);">`;
     html += `<td style="padding: var(--spacing-sm); color: var(--color-text-primary); font-weight: 600;">${property.propertyName}</td>`;
+    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.pageViews)}</td>`;
+    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.mobilePageViews)}</td>`;
     html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.users)}</td>`;
     html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.sessions)}</td>`;
-    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.pageViews)}</td>`;
-    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatPercent(totals.engagementRate)}</td>`;
+    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${totals.avgPagesPerSession.toFixed(2)}</td>`;
+    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatDuration(totals.avgTimeOnSite)}</td>`;
+    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatPercent(totals.socialTrafficPercent)}</td>`;
     html += '</tr>';
   });
 
   html += '</tbody></table>';
   tableContainer.innerHTML = html;
 }
+
