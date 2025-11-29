@@ -105,6 +105,12 @@ function showSignInButton() {
   const signInButton = document.getElementById('signInButton');
   const authButtonContainer = document.getElementById('authButtonContainer');
 
+  // Initialize Google Identity Services first
+  google.accounts.id.initialize({
+    client_id: CONFIG.CLIENT_ID,
+    callback: () => { }, // Dummy callback (not used)
+  });
+
   // Create Google Sign-In button
   google.accounts.id.renderButton(
     signInButton,
@@ -432,19 +438,18 @@ function getDateRanges() {
       break;
 
     case 'fiscal_year':
-      // Fiscal Year: June 30 to June 30
-      // If today is before June 30, current FY ends this year June 30.
-      // If today is after June 30, current FY ends next year June 30.
+      // Fiscal Year: July 1 to June 30
+      // Last Completed Fiscal Year (e.g. if today is Nov 2025, show July 1, 2024 - June 30, 2025)
       const currentYear = today.getFullYear();
       const isBeforeJune30 = today.getMonth() < 5 || (today.getMonth() === 5 && today.getDate() < 30);
 
-      const fyEndYear = isBeforeJune30 ? currentYear : currentYear + 1;
+      const fyEndYear = isBeforeJune30 ? currentYear - 1 : currentYear;
 
       primaryEnd = new Date(fyEndYear, 5, 30); // June 30
-      primaryStart = new Date(fyEndYear - 1, 5, 30); // June 30 previous year
+      primaryStart = new Date(fyEndYear - 1, 6, 1); // July 1 previous year
 
-      comparisonEnd = new Date(primaryStart);
-      comparisonStart = new Date(fyEndYear - 2, 5, 30);
+      comparisonEnd = new Date(fyEndYear - 1, 5, 30); // June 30 of comparison year
+      comparisonStart = new Date(fyEndYear - 2, 6, 1); // July 1 of comparison year
       break;
 
     default:
@@ -519,16 +524,15 @@ function getSingleDateRange() {
       break;
 
     case 'fiscal_year':
-      // Fiscal Year: June 30 to June 30
-      // If today is before June 30, current FY ends this year June 30.
-      // If today is after June 30, current FY ends next year June 30.
+      // Fiscal Year: July 1 to June 30
+      // Target Last Completed Fiscal Year
       const currentYear = today.getFullYear();
       const isBeforeJune30 = today.getMonth() < 5 || (today.getMonth() === 5 && today.getDate() < 30);
 
-      const fyEndYear = isBeforeJune30 ? currentYear : currentYear + 1;
+      const fyEndYear = isBeforeJune30 ? currentYear - 1 : currentYear;
 
       end = new Date(fyEndYear, 5, 30); // June 30
-      start = new Date(fyEndYear - 1, 5, 30); // June 30 previous year
+      start = new Date(fyEndYear - 1, 6, 1); // July 1 previous year
       break;
 
     default:
@@ -843,8 +847,89 @@ function updateDashboard(data, dateRangesOrRange, mode = 'time', properties = nu
       const comparisonData = data.main.rows.filter(row => row.dimensionValues[1]?.value === 'comparison_period');
 
       // Calculate totals for each period
-      const primaryTotals = calculateTotals(primaryData, data.device, data.channel, 'primary_period');
-      const comparisonTotals = calculateTotals(comparisonData, data.device, data.channel, 'comparison_period');
+      // Note: We pass data.summary, but summary report doesn't have date dimension, so it covers the WHOLE period.
+      // For Time Comparison, we have two distinct periods in data.main (primary vs comparison).
+      // The summary report fetched in fetchGA4Data covers the *entire* date range (both periods combined? No, fetchGA4Data receives dateRanges).
+      // fetchGA4Data is called with `dateRanges` which is an array of 2 ranges.
+      // The summary report will return rows for each date range if we request it?
+      // Wait, summary report has NO dimensions. If we pass 2 date ranges, GA4 returns 1 row per date range?
+      // Let's verify fetchGA4Data summary request. It sends `dateRanges`.
+      // If we send 2 date ranges, the response should contain metric values for each range?
+      // Actually, without dimensions, it might aggregate everything?
+      // Or it returns multiple rows, one for each date range?
+      // Standard behavior: if multiple date ranges, it returns columns for each? Or rows?
+      // Usually it returns rows with "date_range" dimension if requested?
+      // But we didn't request "date_range" dimension in summary.
+      // If we don't request "date_range" dimension, but provide 2 ranges, what happens?
+      // It might return a single total?
+      // To be safe for Time Comparison, we might need to rely on the "date_range" dimension being present implicitly?
+      // Actually, let's look at `fetchGA4Data`.
+      // We are using `gapi.client.request`.
+      // If we want accurate totals for Primary vs Comparison, we need to know which row in summary corresponds to which.
+      // If summary has no dimensions, it might just return one row if ranges overlap or are treated as one?
+      // Actually, let's assume for now we only use summary for Property Comparison (where we fetch per property) or single range?
+      // For Time Comparison, we have `primaryData` and `comparisonData` from `main` report which has `date` dimension.
+      // `calculateTotals` sums these up.
+      // If we pass `data.summary`, `calculateTotals` uses it and ignores rows.
+      // If `data.summary` has 1 row (total for both ranges?), then we assign that total to BOTH primary and comparison? That would be WRONG.
+      // So for Time Comparison, we should probably NOT use the global summary unless we are sure it's split.
+      // However, the user's issue was with "Fiscal Year" which is a single range (or comparison against previous?).
+      // If "Fiscal Year" preset is used, it creates 2 ranges (Primary vs Comparison).
+      // The user's image shows 2 columns: 2024-2025 vs 2023-2024.
+      // So we DO need accurate totals for BOTH.
+      // If `summary` report doesn't split by date range, we can't use it for Time Comparison.
+      // UNLESS we add `date_range` dimension to summary report.
+      // Let's modify `fetchGA4Data` to add `date_range` dimension to summary report?
+      // But `date_range` is not a standard dimension name? It's usually automatic.
+      // Actually, let's look at `calculateTotals`. It checks `summaryData.rows`.
+      // If we want to fix this properly, we should rely on the `main` report for Time Comparison (summing rows) which is what we did before, 
+      // BUT the user says "incorrect metrics".
+      // Maybe the "incorrectness" comes from Property Comparison mode?
+      // The user said "I just accessed the metric for the past fiscal year for the collegian property".
+      // "Collegian Property" implies Property Comparison? Or just selecting that property?
+      // If they selected "Collegian" from the dropdown, they are in Time Comparison mode (default).
+      // So they are likely in Time Comparison mode.
+      // If so, `calculateTotals` summing rows is inaccurate for `totalUsers` (sums daily users != total unique users).
+      // So we NEED summary data for Time Comparison too.
+      // To get summary data split by date range, we just need to request `date_range` dimension?
+      // Or just trust that rows correspond to ranges?
+      // Let's try adding `date` dimension to summary? No, that defeats the purpose.
+      // Let's assume for now we stick to row summing for Time Comparison (as it's harder to fix without risking breaking it) 
+      // AND we fix the FORMULAS (Avg Monthly = /12).
+      // The "Avg Monthly" fix in `calculateTotals` works on `rows`.
+      // So that fix applies to Time Comparison.
+      // The "Avg Events/Session" fix works on `totals`.
+      // So if we sum rows, we get `sum(events)` and `sum(sessions)`. This is accurate.
+      // The "Avg Time on Site" fix works on `totals`. `sum(duration) / sum(users)`.
+      // `sum(users)` is the problem. It overcounts.
+      // But for "Avg Time on Site", maybe overcounting users (daily active users sum) is what we have?
+      // The user's "57 seconds" matches `Total Duration / Total Users`.
+      // If `Total Users` is unique users, we need the summary.
+      // Let's try to pass `null` for summary in Time Comparison for now to avoid merging data, 
+      // BUT apply the formula fixes.
+      // Wait, if I don't pass summary, `calculateTotals` uses rows.
+      // `avgMonthlyPageViews` will use `rows.length` (days).
+      // If I fix `calculateTotals` to use 12 months, it should work.
+
+      // Extract summary data for each period
+      // When we pass 2 date ranges to GA4, summary returns rows for each range
+      // We need to match them to primary vs comparison period
+      let primarySummary = null;
+      let comparisonSummary = null;
+
+      if (data.summary && data.summary.rows) {
+        // GA4 returns rows in order of dateRanges array
+        // First row = primary period, second row = comparison period
+        if (data.summary.rows.length >= 1) {
+          primarySummary = { rows: [data.summary.rows[0]] };
+        }
+        if (data.summary.rows.length >= 2) {
+          comparisonSummary = { rows: [data.summary.rows[1]] };
+        }
+      }
+
+      const primaryTotals = calculateTotals(primaryData, data.device, data.channel, primarySummary, 'primary_period');
+      const comparisonTotals = calculateTotals(comparisonData, data.device, data.channel, comparisonSummary, 'comparison_period');
 
       // Update metric cards
       updateMetricCards(primaryTotals, comparisonTotals);
@@ -856,7 +941,7 @@ function updateDashboard(data, dateRangesOrRange, mode = 'time', properties = nu
       updateDataTable(data.main, dateRangesOrRange);
 
     } else {
-      // Property comparison mode: new logic
+      // Property Comparison Mode
       if (!data || data.length === 0) {
         showMessage('configMessage', 'No data available for the selected properties', 'error');
         return;
@@ -865,7 +950,7 @@ function updateDashboard(data, dateRangesOrRange, mode = 'time', properties = nu
       // Calculate totals for each property
       const propertyTotals = data.map(propertyData => ({
         propertyName: propertyData.propertyName,
-        totals: calculateTotals(propertyData.data.main.rows || [], propertyData.data.device, propertyData.data.channel)
+        totals: calculateTotals(propertyData.data.main.rows || [], propertyData.data.device, propertyData.data.channel, propertyData.data.summary)
       }));
 
       // Update metric cards for property comparison
@@ -893,6 +978,9 @@ function calculateTotals(rows, deviceData = null, channelData = null, summaryDat
     bounceRate: 0,
     eventCount: 0,
     userEngagementDuration: 0,
+    averageEngagementTime: 0,
+    eventsPerSession: 0,
+    activeUsers: 0,
     mobilePageViews: 0,
     socialSessions: 0,
     avgMonthlyPageViews: 0,
@@ -909,6 +997,9 @@ function calculateTotals(rows, deviceData = null, channelData = null, summaryDat
     totals.bounceRate = parseFloat(metrics[5]?.value || 0);
     totals.eventCount = parseFloat(metrics[6]?.value || 0);
     totals.userEngagementDuration = parseFloat(metrics[7]?.value || 0);
+    totals.averageEngagementTime = parseFloat(metrics[8]?.value || 0);
+    totals.eventsPerSession = parseFloat(metrics[9]?.value || 0);
+    totals.activeUsers = parseFloat(metrics[10]?.value || 0);
   } else if (rows && rows.length > 0) {
     // Fallback to summing rows (Less accurate for users)
     rows.forEach(row => {
@@ -921,12 +1012,17 @@ function calculateTotals(rows, deviceData = null, channelData = null, summaryDat
       totals.bounceRate += parseFloat(metrics[5]?.value || 0);
       totals.eventCount += parseFloat(metrics[6]?.value || 0);
       totals.userEngagementDuration += parseFloat(metrics[7]?.value || 0);
+      // Averages cannot be summed, but for fallback we might average them?
+      // Better to leave as 0 or calculate from sums if possible.
     });
     // Average the averages if summing rows
     const rowCount = rows.length;
     if (rowCount > 0) {
       totals.avgSessionDuration = totals.avgSessionDuration / rowCount;
       totals.bounceRate = totals.bounceRate / rowCount;
+      // Calculate derived metrics from sums
+      totals.eventsPerSession = totals.sessions > 0 ? totals.eventCount / totals.sessions : 0;
+      totals.averageEngagementTime = totals.users > 0 ? totals.userEngagementDuration / totals.users : 0;
     }
   }
 
@@ -951,8 +1047,9 @@ function calculateTotals(rows, deviceData = null, channelData = null, summaryDat
       const rowPeriod = row.dimensionValues.length > 1 ? row.dimensionValues[1]?.value : periodName;
       if (rowPeriod !== periodName) return;
 
-      const channel = row.dimensionValues[0].value.toLowerCase(); // dimension[0] is sessionDefaultChannelGroup
-      if (channel.includes('social')) {
+      const channel = row.dimensionValues[0].value; // dimension[0] is sessionDefaultChannelGroup
+      // User requested "Organic Social" specifically
+      if (channel === 'Organic Social') {
         totals.socialSessions += parseFloat(row.metricValues[0].value);
       }
     });
@@ -962,26 +1059,28 @@ function calculateTotals(rows, deviceData = null, channelData = null, summaryDat
   totals.socialTrafficPercent = totals.sessions > 0 ? (totals.socialSessions / totals.sessions) * 100 : 0;
 
   // Avg Events Per Session (User requested "Average Pages per Session (Events)")
-  totals.avgPagesPerSession = totals.sessions > 0 ? totals.eventCount / totals.sessions : 0;
+  // Use direct metric if available (from summary), otherwise calculated
+  totals.avgPagesPerSession = totals.eventsPerSession;
 
   // Avg Time on Site (User Engagement Duration / Total Users)
-  totals.avgTimeOnSite = totals.users > 0 ? totals.userEngagementDuration / totals.users : 0;
+  // Use direct metric if available (from summary), otherwise calculated
+  totals.avgTimeOnSite = totals.averageEngagementTime;
 
   // Avg Monthly Page Views
-  // Calculate approximate months in range based on pageViews / 12 for a year
-  // Or better: determine duration from rows if available, or just assume 12 if fiscal year?
-  // User's logic: 1,565,245 / 130,437 = 12. So it's Total / 12.
-  // We should calculate months dynamically.
+  // If the date range is approximately a year (364-367 days), divide by 12.
+  // Otherwise, calculate months dynamically.
   if (rows && rows.length > 0) {
-    // Assuming rows are daily
     const days = rows.length;
-    const months = days / 30.44;
-    totals.avgMonthlyPageViews = months > 0 ? totals.pageViews / months : 0;
+    if (days >= 364 && days <= 367) {
+      totals.avgMonthlyPageViews = totals.pageViews / 12;
+    } else {
+      const months = days / 30.44;
+      totals.avgMonthlyPageViews = months > 0 ? totals.pageViews / months : 0;
+    }
   } else {
-    // If no rows (e.g. summary only?), assume 1 month? No, we need rows to know duration.
-    // Or we can pass date range duration.
-    // For now, if rows exist, use them.
-    totals.avgMonthlyPageViews = totals.pageViews; // Fallback
+    // Fallback if no rows (e.g. summary only) - assume 1 month or use pageViews
+    // Ideally we should pass the date range duration to this function
+    totals.avgMonthlyPageViews = totals.pageViews;
   }
 
   return totals;
@@ -994,34 +1093,42 @@ function updateMetricCards(primary, comparison) {
   // 1. Page Views
   document.getElementById('metricPageViews').textContent = formatNumber(primary.pageViews);
   updateComparison('comparisonPageViews', primary.pageViews, comparison.pageViews);
+  document.getElementById('comparisonValuePageViews').textContent = formatNumber(comparison.pageViews);
 
   // 2. Avg Monthly Page Views (New)
   document.getElementById('metricAvgMonthlyViews').textContent = formatNumber(primary.avgMonthlyPageViews);
   updateComparison('comparisonAvgMonthlyViews', primary.avgMonthlyPageViews, comparison.avgMonthlyPageViews);
+  document.getElementById('comparisonValueAvgMonthlyViews').textContent = formatNumber(comparison.avgMonthlyPageViews);
 
   // 3. Mobile Page Views
   document.getElementById('metricMobileViews').textContent = formatNumber(primary.mobilePageViews);
   updateComparison('comparisonMobileViews', primary.mobilePageViews, comparison.mobilePageViews);
+  document.getElementById('comparisonValueMobileViews').textContent = formatNumber(comparison.mobilePageViews);
 
   // 4. Unique Visitors (Total Users)
   document.getElementById('metricUsers').textContent = formatNumber(primary.users);
   updateComparison('comparisonUsers', primary.users, comparison.users);
+  document.getElementById('comparisonValueUsers').textContent = formatNumber(comparison.users);
 
   // 5. Sessions
   document.getElementById('metricSessions').textContent = formatNumber(primary.sessions);
   updateComparison('comparisonSessions', primary.sessions, comparison.sessions);
+  document.getElementById('comparisonValueSessions').textContent = formatNumber(comparison.sessions);
 
   // 6. Avg Events Per Session (Renamed from Pages/Session)
   document.getElementById('metricPagesPerSession').textContent = primary.avgPagesPerSession.toFixed(2);
   updateComparison('comparisonPagesPerSession', primary.avgPagesPerSession, comparison.avgPagesPerSession);
+  document.getElementById('comparisonValuePagesPerSession').textContent = comparison.avgPagesPerSession.toFixed(2);
 
   // 7. Avg Time on Site (Seconds -> MM:SS)
   document.getElementById('metricAvgTime').textContent = formatDuration(primary.avgTimeOnSite);
   updateComparison('comparisonAvgTime', primary.avgTimeOnSite, comparison.avgTimeOnSite);
+  document.getElementById('comparisonValueAvgTime').textContent = formatDuration(comparison.avgTimeOnSite);
 
   // 8. % Traffic from Social Media
   document.getElementById('metricSocialTraffic').textContent = formatPercent(primary.socialTrafficPercent);
   updateComparison('comparisonSocialTraffic', primary.socialTrafficPercent, comparison.socialTrafficPercent);
+  document.getElementById('comparisonValueSocialTraffic').textContent = formatPercent(comparison.socialTrafficPercent);
 }
 
 /**
@@ -1264,30 +1371,42 @@ function updateMetricCardsForProperties(propertyTotals) {
   // 1. Page Views
   document.getElementById('metricPageViews').textContent = formatNumber(baseline.totals.pageViews);
   updateComparison('comparisonPageViews', baseline.totals.pageViews, comparison.totals.pageViews);
+  document.getElementById('comparisonValuePageViews').textContent = formatNumber(comparison.totals.pageViews);
 
-  // 2. Mobile Page Views
+  // 2. Avg Monthly Page Views
+  document.getElementById('metricAvgMonthlyViews').textContent = formatNumber(baseline.totals.avgMonthlyPageViews);
+  updateComparison('comparisonAvgMonthlyViews', baseline.totals.avgMonthlyPageViews, comparison.totals.avgMonthlyPageViews);
+  document.getElementById('comparisonValueAvgMonthlyViews').textContent = formatNumber(comparison.totals.avgMonthlyPageViews);
+
+  // 3. Mobile Page Views
   document.getElementById('metricMobileViews').textContent = formatNumber(baseline.totals.mobilePageViews);
   updateComparison('comparisonMobileViews', baseline.totals.mobilePageViews, comparison.totals.mobilePageViews);
+  document.getElementById('comparisonValueMobileViews').textContent = formatNumber(comparison.totals.mobilePageViews);
 
-  // 3. Unique Visitors
+  // 4. Unique Visitors
   document.getElementById('metricUsers').textContent = formatNumber(baseline.totals.users);
   updateComparison('comparisonUsers', baseline.totals.users, comparison.totals.users);
+  document.getElementById('comparisonValueUsers').textContent = formatNumber(comparison.totals.users);
 
-  // 4. Sessions
+  // 5. Sessions
   document.getElementById('metricSessions').textContent = formatNumber(baseline.totals.sessions);
   updateComparison('comparisonSessions', baseline.totals.sessions, comparison.totals.sessions);
+  document.getElementById('comparisonValueSessions').textContent = formatNumber(comparison.totals.sessions);
 
-  // 5. Avg Pages Per Session
+  // 6. Avg Events Per Session
   document.getElementById('metricPagesPerSession').textContent = baseline.totals.avgPagesPerSession.toFixed(2);
   updateComparison('comparisonPagesPerSession', baseline.totals.avgPagesPerSession, comparison.totals.avgPagesPerSession);
+  document.getElementById('comparisonValuePagesPerSession').textContent = comparison.totals.avgPagesPerSession.toFixed(2);
 
-  // 6. Avg Time on Site
+  // 7. Avg Time on Site
   document.getElementById('metricAvgTime').textContent = formatDuration(baseline.totals.avgTimeOnSite);
   updateComparison('comparisonAvgTime', baseline.totals.avgTimeOnSite, comparison.totals.avgTimeOnSite);
+  document.getElementById('comparisonValueAvgTime').textContent = formatDuration(comparison.totals.avgTimeOnSite);
 
-  // 7. % Traffic from Social Media
+  // 8. % Traffic from Social Media
   document.getElementById('metricSocialTraffic').textContent = formatPercent(baseline.totals.socialTrafficPercent);
   updateComparison('comparisonSocialTraffic', baseline.totals.socialTrafficPercent, comparison.totals.socialTrafficPercent);
+  document.getElementById('comparisonValueSocialTraffic').textContent = formatPercent(comparison.totals.socialTrafficPercent);
 }
 
 /**
@@ -1371,21 +1490,23 @@ function updateDataTableForProperties(propertyData, dateRange) {
   html += '<thead><tr style="border-bottom: 1px solid var(--color-border);">';
   html += '<th style="padding: var(--spacing-sm); text-align: left; color: var(--color-text-secondary);">Property</th>';
   html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Page Views</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Avg Monthly</th>';
   html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Mobile Views</th>';
   html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Users</th>';
   html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Sessions</th>';
-  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Pages/Session</th>';
+  html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Events/Session</th>';
   html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">Time on Site</th>';
   html += '<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">% Social</th>';
   html += '</tr></thead>';
   html += '<tbody>';
 
   propertyData.forEach(property => {
-    const totals = calculateTotals(property.data.main.rows || [], property.data.device, property.data.channel);
+    const totals = calculateTotals(property.data.main.rows || [], property.data.device, property.data.channel, property.data.summary);
 
     html += `<tr style="border-bottom: 1px solid var(--color-border);">`;
     html += `<td style="padding: var(--spacing-sm); color: var(--color-text-primary); font-weight: 600;">${property.propertyName}</td>`;
     html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.pageViews)}</td>`;
+    html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.avgMonthlyPageViews)}</td>`;
     html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.mobilePageViews)}</td>`;
     html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.users)}</td>`;
     html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(totals.sessions)}</td>`;

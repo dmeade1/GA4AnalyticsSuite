@@ -132,20 +132,6 @@
           </div>
         </div>
 
-        <!-- Content Filters -->
-        <div class="card-section mt-lg">
-          <h4 class="text-sm font-semibold mb-sm">Content Filters</h4>
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" id="enableExcludeFilter"> Exclude Page Path
-            </label>
-            <div id="excludeFilterInputGroup" class="mt-sm hidden">
-              <label class="form-label text-xs" for="excludePagePath">Exclude paths containing:</label>
-              <input type="text" id="excludePagePath" class="form-input" placeholder="/sponsored/" value="/sponsored/">
-            </div>
-          </div>
-        </div>
-
         <!-- Date Range Configuration -->
         <div class="grid grid-2">
           <!-- Date Range Preset (shown in Time Comparison Mode) -->
@@ -218,6 +204,20 @@
           </div>
         </div>
 
+        <!-- Content Filters -->
+        <div class="card-section mt-lg">
+          <h4 class="text-sm font-semibold mb-sm">Content Filters</h4>
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" id="enableExcludeFilter"> Exclude Page Path
+            </label>
+            <div id="excludeFilterInputGroup" class="mt-sm hidden">
+              <label class="form-label text-xs" for="excludePagePath">Exclude paths containing:</label>
+              <input type="text" id="excludePagePath" class="form-input" placeholder="/sponsored/" value="/sponsored/">
+            </div>
+          </div>
+        </div>
+
         <div class="flex" style="justify-content: flex-end; margin-top: var(--spacing-lg);">
           <button id="fetchDataButton" class="btn btn-primary btn-lg">
             📊 Fetch Analytics Data
@@ -229,7 +229,7 @@
       </div>
 
       <!-- Dashboard -->
-      <div id="dashboard" class="hidden">
+      <div id="dashboard" class="hidden" style="margin-top: 3rem;">
         <!-- Metrics Grid -->
         <!-- Metrics Grid -->
         <div class="grid grid-4 mb-xl">
@@ -244,6 +244,9 @@
               <span id="comparisonPageViews" class="metric-change neutral">-</span>
               <span class="text-muted">vs previous</span>
             </div>
+            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+              Previous: <span id="comparisonValuePageViews">-</span>
+            </div>
           </div>
 
           <!-- 2. Avg Monthly Page Views -->
@@ -256,6 +259,9 @@
             <div class="metric-comparison">
               <span id="comparisonAvgMonthlyViews" class="metric-change neutral">-</span>
               <span class="text-muted">vs previous</span>
+            </div>
+            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+              Previous: <span id="comparisonValueAvgMonthlyViews">-</span>
             </div>
           </div>
 
@@ -270,6 +276,9 @@
               <span id="comparisonMobileViews" class="metric-change neutral">-</span>
               <span class="text-muted">vs previous</span>
             </div>
+            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+              Previous: <span id="comparisonValueMobileViews">-</span>
+            </div>
           </div>
 
           <!-- 4. Unique Visitors -->
@@ -282,6 +291,9 @@
             <div class="metric-comparison">
               <span id="comparisonUsers" class="metric-change neutral">-</span>
               <span class="text-muted">vs previous</span>
+            </div>
+            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+              Previous: <span id="comparisonValueUsers">-</span>
             </div>
           </div>
 
@@ -296,6 +308,9 @@
               <span id="comparisonSessions" class="metric-change neutral">-</span>
               <span class="text-muted">vs previous</span>
             </div>
+            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+              Previous: <span id="comparisonValueSessions">-</span>
+            </div>
           </div>
 
           <!-- 6. Avg Events Per Session -->
@@ -308,6 +323,9 @@
             <div class="metric-comparison">
               <span id="comparisonPagesPerSession" class="metric-change neutral">-</span>
               <span class="text-muted">vs previous</span>
+            </div>
+            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+              Previous: <span id="comparisonValuePagesPerSession">-</span>
             </div>
           </div>
 
@@ -322,6 +340,9 @@
               <span id="comparisonAvgTime" class="metric-change neutral">-</span>
               <span class="text-muted">vs previous</span>
             </div>
+            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+              Previous: <span id="comparisonValueAvgTime">-</span>
+            </div>
           </div>
 
           <!-- 8. % Traffic from Social Media -->
@@ -334,6 +355,9 @@
             <div class="metric-comparison">
               <span id="comparisonSocialTraffic" class="metric-change neutral">-</span>
               <span class="text-muted">vs previous</span>
+            </div>
+            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+              Previous: <span id="comparisonValueSocialTraffic">-</span>
             </div>
           </div>
         </div>
