@@ -9,7 +9,7 @@
   <title>GA4 Analytics Platform | RMSMC</title>
 
   <!-- Stylesheets -->
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2">
   <link rel="stylesheet" href="custom-button.css">
 
   <!-- Google Identity Services -->
@@ -230,7 +230,17 @@
 
       <!-- Dashboard -->
       <div id="dashboard" class="hidden" style="margin-top: 3rem;">
-        <!-- Metrics Grid -->
+        <!-- Ranking Chart (Home Page Graph) -->
+        <div class="card mb-xl">
+          <div class="card-header">
+            <h3 class="card-title">🏆 Property Ranking</h3>
+            <p class="card-subtitle">Top performing properties by page views</p>
+          </div>
+          <div class="chart-container" style="height: 250px;">
+            <canvas id="rankingChart"></canvas>
+          </div>
+        </div>
+
         <!-- Metrics Grid -->
         <div class="grid grid-4 mb-xl">
           <!-- 1. Page Views -->
@@ -239,14 +249,19 @@
               <span class="metric-label">Page Views</span>
               <div class="metric-icon">📄</div>
             </div>
-            <div class="metric-value" id="metricPageViews">-</div>
-            <div class="metric-comparison">
-              <span id="comparisonPageViews" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous</span>
+            <!-- Time View -->
+            <div class="time-view" id="timeViewPageViews">
+              <div class="metric-value" id="metricPageViews">-</div>
+              <div class="metric-comparison">
+                <span id="comparisonPageViews" class="metric-change neutral">-</span>
+                <span class="text-muted">vs previous</span>
+              </div>
+              <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+                Previous: <span id="comparisonValuePageViews">-</span>
+              </div>
             </div>
-            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
-              Previous: <span id="comparisonValuePageViews">-</span>
-            </div>
+            <!-- Property View -->
+            <div class="property-view hidden" id="propertyViewPageViews"></div>
           </div>
 
           <!-- 2. Avg Monthly Page Views -->
@@ -255,14 +270,19 @@
               <span class="metric-label">Avg Monthly Views</span>
               <div class="metric-icon">📅</div>
             </div>
-            <div class="metric-value" id="metricAvgMonthlyViews">-</div>
-            <div class="metric-comparison">
-              <span id="comparisonAvgMonthlyViews" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous</span>
+            <!-- Time View -->
+            <div class="time-view" id="timeViewAvgMonthlyViews">
+              <div class="metric-value" id="metricAvgMonthlyViews">-</div>
+              <div class="metric-comparison">
+                <span id="comparisonAvgMonthlyViews" class="metric-change neutral">-</span>
+                <span class="text-muted">vs previous</span>
+              </div>
+              <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+                Previous: <span id="comparisonValueAvgMonthlyViews">-</span>
+              </div>
             </div>
-            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
-              Previous: <span id="comparisonValueAvgMonthlyViews">-</span>
-            </div>
+            <!-- Property View -->
+            <div class="property-view hidden" id="propertyViewAvgMonthlyViews"></div>
           </div>
 
           <!-- 3. Mobile Page Views -->
@@ -271,14 +291,19 @@
               <span class="metric-label">Mobile Page Views</span>
               <div class="metric-icon">📱</div>
             </div>
-            <div class="metric-value" id="metricMobileViews">-</div>
-            <div class="metric-comparison">
-              <span id="comparisonMobileViews" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous</span>
+            <!-- Time View -->
+            <div class="time-view" id="timeViewMobileViews">
+              <div class="metric-value" id="metricMobileViews">-</div>
+              <div class="metric-comparison">
+                <span id="comparisonMobileViews" class="metric-change neutral">-</span>
+                <span class="text-muted">vs previous</span>
+              </div>
+              <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+                Previous: <span id="comparisonValueMobileViews">-</span>
+              </div>
             </div>
-            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
-              Previous: <span id="comparisonValueMobileViews">-</span>
-            </div>
+            <!-- Property View -->
+            <div class="property-view hidden" id="propertyViewMobileViews"></div>
           </div>
 
           <!-- 4. Unique Visitors -->
@@ -287,14 +312,19 @@
               <span class="metric-label">Unique Visitors</span>
               <div class="metric-icon">👥</div>
             </div>
-            <div class="metric-value" id="metricUsers">-</div>
-            <div class="metric-comparison">
-              <span id="comparisonUsers" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous</span>
+            <!-- Time View -->
+            <div class="time-view" id="timeViewUsers">
+              <div class="metric-value" id="metricUsers">-</div>
+              <div class="metric-comparison">
+                <span id="comparisonUsers" class="metric-change neutral">-</span>
+                <span class="text-muted">vs previous</span>
+              </div>
+              <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+                Previous: <span id="comparisonValueUsers">-</span>
+              </div>
             </div>
-            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
-              Previous: <span id="comparisonValueUsers">-</span>
-            </div>
+            <!-- Property View -->
+            <div class="property-view hidden" id="propertyViewUsers"></div>
           </div>
 
           <!-- 5. Sessions -->
@@ -303,14 +333,19 @@
               <span class="metric-label">Sessions</span>
               <div class="metric-icon">🔄</div>
             </div>
-            <div class="metric-value" id="metricSessions">-</div>
-            <div class="metric-comparison">
-              <span id="comparisonSessions" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous</span>
+            <!-- Time View -->
+            <div class="time-view" id="timeViewSessions">
+              <div class="metric-value" id="metricSessions">-</div>
+              <div class="metric-comparison">
+                <span id="comparisonSessions" class="metric-change neutral">-</span>
+                <span class="text-muted">vs previous</span>
+              </div>
+              <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+                Previous: <span id="comparisonValueSessions">-</span>
+              </div>
             </div>
-            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
-              Previous: <span id="comparisonValueSessions">-</span>
-            </div>
+            <!-- Property View -->
+            <div class="property-view hidden" id="propertyViewSessions"></div>
           </div>
 
           <!-- 6. Avg Events Per Session -->
@@ -319,14 +354,19 @@
               <span class="metric-label">Avg Events / Session</span>
               <div class="metric-icon">📑</div>
             </div>
-            <div class="metric-value" id="metricPagesPerSession">-</div>
-            <div class="metric-comparison">
-              <span id="comparisonPagesPerSession" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous</span>
+            <!-- Time View -->
+            <div class="time-view" id="timeViewPagesPerSession">
+              <div class="metric-value" id="metricPagesPerSession">-</div>
+              <div class="metric-comparison">
+                <span id="comparisonPagesPerSession" class="metric-change neutral">-</span>
+                <span class="text-muted">vs previous</span>
+              </div>
+              <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+                Previous: <span id="comparisonValuePagesPerSession">-</span>
+              </div>
             </div>
-            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
-              Previous: <span id="comparisonValuePagesPerSession">-</span>
-            </div>
+            <!-- Property View -->
+            <div class="property-view hidden" id="propertyViewPagesPerSession"></div>
           </div>
 
           <!-- 7. Avg Time on Site -->
@@ -335,14 +375,19 @@
               <span class="metric-label">Avg Time on Site</span>
               <div class="metric-icon">⏱️</div>
             </div>
-            <div class="metric-value" id="metricAvgTime">-</div>
-            <div class="metric-comparison">
-              <span id="comparisonAvgTime" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous</span>
+            <!-- Time View -->
+            <div class="time-view" id="timeViewAvgTime">
+              <div class="metric-value" id="metricAvgTime">-</div>
+              <div class="metric-comparison">
+                <span id="comparisonAvgTime" class="metric-change neutral">-</span>
+                <span class="text-muted">vs previous</span>
+              </div>
+              <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+                Previous: <span id="comparisonValueAvgTime">-</span>
+              </div>
             </div>
-            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
-              Previous: <span id="comparisonValueAvgTime">-</span>
-            </div>
+            <!-- Property View -->
+            <div class="property-view hidden" id="propertyViewAvgTime"></div>
           </div>
 
           <!-- 8. % Traffic from Social Media -->
@@ -351,23 +396,35 @@
               <span class="metric-label">% Social Traffic</span>
               <div class="metric-icon">💬</div>
             </div>
-            <div class="metric-value" id="metricSocialTraffic">-</div>
-            <div class="metric-comparison">
-              <span id="comparisonSocialTraffic" class="metric-change neutral">-</span>
-              <span class="text-muted">vs previous</span>
+            <!-- Time View -->
+            <div class="time-view" id="timeViewSocialTraffic">
+              <div class="metric-value" id="metricSocialTraffic">-</div>
+              <div class="metric-comparison">
+                <span id="comparisonSocialTraffic" class="metric-change neutral">-</span>
+                <span class="text-muted">vs previous</span>
+              </div>
+              <div class="text-xs text-muted" style="margin-top: 0.25rem;">
+                Previous: <span id="comparisonValueSocialTraffic">-</span>
+              </div>
             </div>
-            <div class="text-xs text-muted" style="margin-top: 0.25rem;">
-              Previous: <span id="comparisonValueSocialTraffic">-</span>
-            </div>
+            <!-- Property View -->
+            <div class="property-view hidden" id="propertyViewSocialTraffic"></div>
           </div>
         </div>
 
         <!-- Charts -->
         <div class="grid grid-2">
           <div class="card">
-            <div class="card-header">
-              <h3 class="card-title">📈 Trend Analysis</h3>
-              <p class="card-subtitle">Daily comparison of key metrics</p>
+            <div class="card-header flex-between">
+              <div>
+                <h3 class="card-title">📈 Trend Analysis</h3>
+                <p class="card-subtitle">Daily comparison of key metrics</p>
+              </div>
+              <div class="form-group mb-0">
+                <label class="checkbox-label text-sm">
+                  <input type="checkbox" id="logScaleToggle"> Log Scale
+                </label>
+              </div>
             </div>
             <div class="chart-container">
               <canvas id="trendChart"></canvas>

@@ -23,6 +23,7 @@ const METRICS = [
   { name: 'bounceRate' },
   { name: 'eventCount' },
   { name: 'userEngagementDuration' },
+  { name: 'activeUsers' },
 ];
 
 // Chart instances
@@ -262,6 +263,19 @@ function setupEventListeners() {
       inputGroup.classList.add('hidden');
     }
   });
+
+  // Log Scale Toggle
+  document.getElementById('logScaleToggle').addEventListener('change', () => {
+    // Re-render charts with new scale setting
+    // We need to store the last data to re-render without fetching
+    if (window.lastChartData) {
+      if (comparisonMode === 'time') {
+        updateCharts(window.lastChartData.primaryData, window.lastChartData.comparisonData, window.lastChartData.primaryTotals, window.lastChartData.comparisonTotals);
+      } else {
+        updateChartsForProperties(window.lastChartData.propertyTotals, window.lastChartData.dateRange);
+      }
+    }
+  });
 }
 
 /**
@@ -290,6 +304,18 @@ function handleComparisonModeChange(e) {
 
   // Reset custom date ranges
   document.getElementById('customDateRanges').classList.add('hidden');
+
+  // Toggle metric card views based on mode
+  const timeViews = document.querySelectorAll('.time-view');
+  const propertyViews = document.querySelectorAll('.property-view');
+
+  if (comparisonMode === 'time') {
+    timeViews.forEach(el => el.classList.remove('hidden'));
+    propertyViews.forEach(el => el.classList.add('hidden'));
+  } else {
+    timeViews.forEach(el => el.classList.add('hidden'));
+    propertyViews.forEach(el => el.classList.remove('hidden'));
+  }
 }
 
 /**
@@ -610,6 +636,14 @@ async function handleFetchData() {
       // Update dashboard
       updateDashboard(data, dateRanges, 'time');
 
+      // Store data for re-rendering (log scale toggle)
+      window.lastChartData = {
+        primaryData: data.main.rows,
+        comparisonData: data.main.rows, // Simplified for now, logic in updateDashboard handles splitting
+        primaryTotals: calculateTotals(data.summary.rows[0]),
+        comparisonTotals: calculateTotals(data.summary.rows[1] || data.summary.rows[0])
+      };
+
     } else {
       // Property comparison mode: multiple properties, single time period
       const selectedProperties = Array.from(
@@ -634,7 +668,16 @@ async function handleFetchData() {
 
       // Update dashboard
       updateDashboard(multiPropertyData, dateRange, 'property', selectedProperties);
+
+      // Store data for re-rendering
+      window.lastChartData = {
+        propertyTotals: multiPropertyData,
+        dateRange: dateRange
+      };
     }
+
+    // Fetch and render ranking graph (always)
+    fetchAndRenderRankingGraph();
 
     // Hide loading, show dashboard
     document.getElementById('loadingState').classList.add('hidden');
@@ -669,15 +712,28 @@ async function fetchGA4Data(propertyId, dateRanges, dimensionFilter = null) {
     dimensions: [{ name: 'deviceCategory' }],
   };
 
-  // 3. Channel Report (for Social Traffic)
+  // 3. Channel Report (for Social Traffic AND Events Per Session)
+  // User navigation: Acquisition -> Traffic Acquisition (Session Primary Channel Group) -> Events Per Session
   const channelRequest = {
     property: `properties/${propertyId}`,
     dateRanges: dateRanges,
-    metrics: [{ name: 'sessions' }],
+    metrics: [
+      { name: 'sessions' },
+      { name: 'eventCount' }  // Changed to eventCount to calculate manually
+    ],
     dimensions: [{ name: 'sessionDefaultChannelGroup' }],
   };
 
-  // 4. Summary Report (No Dimensions - Accurate Totals)
+  // 4. Engagement Report (for Average Engagement Time Per Active User)
+  // User navigation: Engagement -> Page Path and Screen Class -> Average Engagement Time Per Active User
+  const engagementRequest = {
+    property: `properties/${propertyId}`,
+    dateRanges: dateRanges,
+    metrics: [{ name: 'userEngagementDuration' }],
+    dimensions: [{ name: 'pagePath' }],
+  };
+
+  // 5. Summary Report (No Dimensions - Accurate Totals)
   const summaryRequest = {
     property: `properties/${propertyId}`,
     dateRanges: dateRanges,
@@ -688,11 +744,12 @@ async function fetchGA4Data(propertyId, dateRanges, dimensionFilter = null) {
     mainRequest.dimensionFilter = dimensionFilter;
     deviceRequest.dimensionFilter = dimensionFilter;
     channelRequest.dimensionFilter = dimensionFilter;
+    engagementRequest.dimensionFilter = dimensionFilter;
     summaryRequest.dimensionFilter = dimensionFilter;
   }
 
   try {
-    const [mainResponse, deviceResponse, channelResponse, summaryResponse] = await Promise.all([
+    const [mainResponse, deviceResponse, channelResponse, engagementResponse, summaryResponse] = await Promise.all([
       gapi.client.request({
         path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + propertyId + ':runReport',
         method: 'POST',
@@ -711,6 +768,11 @@ async function fetchGA4Data(propertyId, dateRanges, dimensionFilter = null) {
       gapi.client.request({
         path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + propertyId + ':runReport',
         method: 'POST',
+        body: engagementRequest,
+      }),
+      gapi.client.request({
+        path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + propertyId + ':runReport',
+        method: 'POST',
         body: summaryRequest,
       }),
     ]);
@@ -719,6 +781,7 @@ async function fetchGA4Data(propertyId, dateRanges, dimensionFilter = null) {
       main: mainResponse.result,
       device: deviceResponse.result,
       channel: channelResponse.result,
+      engagement: engagementResponse.result,
       summary: summaryResponse.result,
     };
   } catch (error) {
@@ -755,18 +818,32 @@ async function fetchMultiPropertyData(properties, dateRange, dimensionFilter = n
       dimensions: [{ name: 'deviceCategory' }],
     };
 
-    // 3. Channel Report
+    // 3. Channel Report (with Events Per Session)
     const channelRequest = {
       property: `properties/${property.id}`,
       dateRanges: [{
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       }],
-      metrics: [{ name: 'sessions' }],
+      metrics: [
+        { name: 'sessions' },
+        { name: 'eventCount' }
+      ],
       dimensions: [{ name: 'sessionDefaultChannelGroup' }],
     };
 
-    // 4. Summary Report
+    // 4. Engagement Report
+    const engagementRequest = {
+      property: `properties/${property.id}`,
+      dateRanges: [{
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      }],
+      metrics: [{ name: 'userEngagementDuration' }],
+      dimensions: [{ name: 'pagePath' }],
+    };
+
+    // 5. Summary Report
     const summaryRequest = {
       property: `properties/${property.id}`,
       dateRanges: [{
@@ -780,11 +857,12 @@ async function fetchMultiPropertyData(properties, dateRange, dimensionFilter = n
       mainRequest.dimensionFilter = dimensionFilter;
       deviceRequest.dimensionFilter = dimensionFilter;
       channelRequest.dimensionFilter = dimensionFilter;
+      engagementRequest.dimensionFilter = dimensionFilter;
       summaryRequest.dimensionFilter = dimensionFilter;
     }
 
     try {
-      const [mainResponse, deviceResponse, channelResponse, summaryResponse] = await Promise.all([
+      const [mainResponse, deviceResponse, channelResponse, engagementResponse, summaryResponse] = await Promise.all([
         gapi.client.request({
           path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + property.id + ':runReport',
           method: 'POST',
@@ -803,6 +881,11 @@ async function fetchMultiPropertyData(properties, dateRange, dimensionFilter = n
         gapi.client.request({
           path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + property.id + ':runReport',
           method: 'POST',
+          body: engagementRequest,
+        }),
+        gapi.client.request({
+          path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + property.id + ':runReport',
+          method: 'POST',
           body: summaryRequest,
         }),
       ]);
@@ -814,6 +897,7 @@ async function fetchMultiPropertyData(properties, dateRange, dimensionFilter = n
           main: mainResponse.result,
           device: deviceResponse.result,
           channel: channelResponse.result,
+          engagement: engagementResponse.result,
           summary: summaryResponse.result,
         },
       });
@@ -836,139 +920,72 @@ async function fetchMultiPropertyData(properties, dateRange, dimensionFilter = n
 function updateDashboard(data, dateRangesOrRange, mode = 'time', properties = null) {
   if (mode === 'time') {
     // Time comparison mode: existing logic
-    if (!data.rows || data.rows.length === 0) {
-      if (!data.main.rows || data.main.rows.length === 0) {
-        showMessage('configMessage', 'No data available for the selected period', 'error');
-        return;
-      }
-
-      // Separate data by date range
-      const primaryData = data.main.rows.filter(row => row.dimensionValues[1]?.value === 'primary_period' || !row.dimensionValues[1]);
-      const comparisonData = data.main.rows.filter(row => row.dimensionValues[1]?.value === 'comparison_period');
-
-      // Calculate totals for each period
-      // Note: We pass data.summary, but summary report doesn't have date dimension, so it covers the WHOLE period.
-      // For Time Comparison, we have two distinct periods in data.main (primary vs comparison).
-      // The summary report fetched in fetchGA4Data covers the *entire* date range (both periods combined? No, fetchGA4Data receives dateRanges).
-      // fetchGA4Data is called with `dateRanges` which is an array of 2 ranges.
-      // The summary report will return rows for each date range if we request it?
-      // Wait, summary report has NO dimensions. If we pass 2 date ranges, GA4 returns 1 row per date range?
-      // Let's verify fetchGA4Data summary request. It sends `dateRanges`.
-      // If we send 2 date ranges, the response should contain metric values for each range?
-      // Actually, without dimensions, it might aggregate everything?
-      // Or it returns multiple rows, one for each date range?
-      // Standard behavior: if multiple date ranges, it returns columns for each? Or rows?
-      // Usually it returns rows with "date_range" dimension if requested?
-      // But we didn't request "date_range" dimension in summary.
-      // If we don't request "date_range" dimension, but provide 2 ranges, what happens?
-      // It might return a single total?
-      // To be safe for Time Comparison, we might need to rely on the "date_range" dimension being present implicitly?
-      // Actually, let's look at `fetchGA4Data`.
-      // We are using `gapi.client.request`.
-      // If we want accurate totals for Primary vs Comparison, we need to know which row in summary corresponds to which.
-      // If summary has no dimensions, it might just return one row if ranges overlap or are treated as one?
-      // Actually, let's assume for now we only use summary for Property Comparison (where we fetch per property) or single range?
-      // For Time Comparison, we have `primaryData` and `comparisonData` from `main` report which has `date` dimension.
-      // `calculateTotals` sums these up.
-      // If we pass `data.summary`, `calculateTotals` uses it and ignores rows.
-      // If `data.summary` has 1 row (total for both ranges?), then we assign that total to BOTH primary and comparison? That would be WRONG.
-      // So for Time Comparison, we should probably NOT use the global summary unless we are sure it's split.
-      // However, the user's issue was with "Fiscal Year" which is a single range (or comparison against previous?).
-      // If "Fiscal Year" preset is used, it creates 2 ranges (Primary vs Comparison).
-      // The user's image shows 2 columns: 2024-2025 vs 2023-2024.
-      // So we DO need accurate totals for BOTH.
-      // If `summary` report doesn't split by date range, we can't use it for Time Comparison.
-      // UNLESS we add `date_range` dimension to summary report.
-      // Let's modify `fetchGA4Data` to add `date_range` dimension to summary report?
-      // But `date_range` is not a standard dimension name? It's usually automatic.
-      // Actually, let's look at `calculateTotals`. It checks `summaryData.rows`.
-      // If we want to fix this properly, we should rely on the `main` report for Time Comparison (summing rows) which is what we did before, 
-      // BUT the user says "incorrect metrics".
-      // Maybe the "incorrectness" comes from Property Comparison mode?
-      // The user said "I just accessed the metric for the past fiscal year for the collegian property".
-      // "Collegian Property" implies Property Comparison? Or just selecting that property?
-      // If they selected "Collegian" from the dropdown, they are in Time Comparison mode (default).
-      // So they are likely in Time Comparison mode.
-      // If so, `calculateTotals` summing rows is inaccurate for `totalUsers` (sums daily users != total unique users).
-      // So we NEED summary data for Time Comparison too.
-      // To get summary data split by date range, we just need to request `date_range` dimension?
-      // Or just trust that rows correspond to ranges?
-      // Let's try adding `date` dimension to summary? No, that defeats the purpose.
-      // Let's assume for now we stick to row summing for Time Comparison (as it's harder to fix without risking breaking it) 
-      // AND we fix the FORMULAS (Avg Monthly = /12).
-      // The "Avg Monthly" fix in `calculateTotals` works on `rows`.
-      // So that fix applies to Time Comparison.
-      // The "Avg Events/Session" fix works on `totals`.
-      // So if we sum rows, we get `sum(events)` and `sum(sessions)`. This is accurate.
-      // The "Avg Time on Site" fix works on `totals`. `sum(duration) / sum(users)`.
-      // `sum(users)` is the problem. It overcounts.
-      // But for "Avg Time on Site", maybe overcounting users (daily active users sum) is what we have?
-      // The user's "57 seconds" matches `Total Duration / Total Users`.
-      // If `Total Users` is unique users, we need the summary.
-      // Let's try to pass `null` for summary in Time Comparison for now to avoid merging data, 
-      // BUT apply the formula fixes.
-      // Wait, if I don't pass summary, `calculateTotals` uses rows.
-      // `avgMonthlyPageViews` will use `rows.length` (days).
-      // If I fix `calculateTotals` to use 12 months, it should work.
-
-      // Extract summary data for each period
-      // When we pass 2 date ranges to GA4, summary returns rows for each range
-      // We need to match them to primary vs comparison period
-      let primarySummary = null;
-      let comparisonSummary = null;
-
-      if (data.summary && data.summary.rows) {
-        // GA4 returns rows in order of dateRanges array
-        // First row = primary period, second row = comparison period
-        if (data.summary.rows.length >= 1) {
-          primarySummary = { rows: [data.summary.rows[0]] };
-        }
-        if (data.summary.rows.length >= 2) {
-          comparisonSummary = { rows: [data.summary.rows[1]] };
-        }
-      }
-
-      const primaryTotals = calculateTotals(primaryData, data.device, data.channel, primarySummary, 'primary_period');
-      const comparisonTotals = calculateTotals(comparisonData, data.device, data.channel, comparisonSummary, 'comparison_period');
-
-      // Update metric cards
-      updateMetricCards(primaryTotals, comparisonTotals);
-
-      // Update charts
-      updateCharts(primaryData, comparisonData, primaryTotals, comparisonTotals);
-
-      // Update data table
-      updateDataTable(data.main, dateRangesOrRange);
-
-    } else {
-      // Property Comparison Mode
-      if (!data || data.length === 0) {
-        showMessage('configMessage', 'No data available for the selected properties', 'error');
-        return;
-      }
-
-      // Calculate totals for each property
-      const propertyTotals = data.map(propertyData => ({
-        propertyName: propertyData.propertyName,
-        totals: calculateTotals(propertyData.data.main.rows || [], propertyData.data.device, propertyData.data.channel, propertyData.data.summary)
-      }));
-
-      // Update metric cards for property comparison
-      updateMetricCardsForProperties(propertyTotals);
-
-      // Update charts for property comparison
-      updateChartsForProperties(data, propertyTotals);
-
-      // Update data table for property comparison
-      updateDataTableForProperties(data, dateRangesOrRange);
+    if (!data.main.rows || data.main.rows.length === 0) {
+      showMessage('configMessage', 'No data available for the selected period', 'error');
+      return;
     }
+
+    // Separate data by date range
+    const primaryData = data.main.rows.filter(row => row.dimensionValues[1]?.value === 'primary_period' || !row.dimensionValues[1]);
+    const comparisonData = data.main.rows.filter(row => row.dimensionValues[1]?.value === 'comparison_period');
+
+    // Extract summary data for each period
+    // When we pass 2 date ranges to GA4, summary returns rows for each range
+    // We need to match them to primary vs comparison period
+    let primarySummary = null;
+    let comparisonSummary = null;
+
+    if (data.summary && data.summary.rows) {
+      // GA4 returns rows in order of dateRanges array
+      // First row = primary period, second row = comparison period
+      if (data.summary.rows.length >= 1) {
+        primarySummary = { rows: [data.summary.rows[0]] };
+      }
+      if (data.summary.rows.length >= 2) {
+        comparisonSummary = { rows: [data.summary.rows[1]] };
+      }
+    }
+
+    const primaryTotals = calculateTotals(primaryData, data.device, data.channel, primarySummary, data.engagement, 'primary_period');
+    const comparisonTotals = calculateTotals(comparisonData, data.device, data.channel, comparisonSummary, data.engagement, 'comparison_period');
+
+    // Update metric cards
+    updateMetricCards(primaryTotals, comparisonTotals);
+
+    // Update charts
+    updateCharts(primaryData, comparisonData, primaryTotals, comparisonTotals);
+
+    // Update data table
+    updateDataTable(data.main, dateRangesOrRange);
+
+  } else if (mode === 'property') {
+    // Property Comparison Mode
+    if (!data || data.length === 0) {
+      showMessage('configMessage', 'No data available for the selected properties', 'error');
+      return;
+    }
+
+    // Calculate totals for each property
+    const propertyTotals = data.map(propertyData => ({
+      propertyName: propertyData.propertyName,
+      totals: calculateTotals(propertyData.data.main.rows || [], propertyData.data.device, propertyData.data.channel, propertyData.data.summary, propertyData.data.engagement)
+    }));
+
+    // Update metric cards for property comparison
+    updateMetricCardsForProperties(propertyTotals);
+
+    // Update charts for property comparison
+    updateChartsForProperties(data, propertyTotals);
+
+    // Update data table for property comparison
+    updateDataTableForProperties(data, dateRangesOrRange);
   }
 }
 
 /**
  * Calculate totals from row data and auxiliary reports
  */
-function calculateTotals(rows, deviceData = null, channelData = null, summaryData = null, periodName = 'primary_period') {
+function calculateTotals(rows, deviceData = null, channelData = null, summaryData = null, engagementData = null, periodName = 'primary_period') {
   const totals = {
     users: 0,
     sessions: 0,
@@ -997,9 +1014,7 @@ function calculateTotals(rows, deviceData = null, channelData = null, summaryDat
     totals.bounceRate = parseFloat(metrics[5]?.value || 0);
     totals.eventCount = parseFloat(metrics[6]?.value || 0);
     totals.userEngagementDuration = parseFloat(metrics[7]?.value || 0);
-    totals.averageEngagementTime = parseFloat(metrics[8]?.value || 0);
-    totals.eventsPerSession = parseFloat(metrics[9]?.value || 0);
-    totals.activeUsers = parseFloat(metrics[10]?.value || 0);
+    totals.activeUsers = parseFloat(metrics[8]?.value || 0);
   } else if (rows && rows.length > 0) {
     // Fallback to summing rows (Less accurate for users)
     rows.forEach(row => {
@@ -1012,17 +1027,12 @@ function calculateTotals(rows, deviceData = null, channelData = null, summaryDat
       totals.bounceRate += parseFloat(metrics[5]?.value || 0);
       totals.eventCount += parseFloat(metrics[6]?.value || 0);
       totals.userEngagementDuration += parseFloat(metrics[7]?.value || 0);
-      // Averages cannot be summed, but for fallback we might average them?
-      // Better to leave as 0 or calculate from sums if possible.
     });
     // Average the averages if summing rows
     const rowCount = rows.length;
     if (rowCount > 0) {
       totals.avgSessionDuration = totals.avgSessionDuration / rowCount;
       totals.bounceRate = totals.bounceRate / rowCount;
-      // Calculate derived metrics from sums
-      totals.eventsPerSession = totals.sessions > 0 ? totals.eventCount / totals.sessions : 0;
-      totals.averageEngagementTime = totals.users > 0 ? totals.userEngagementDuration / totals.users : 0;
     }
   }
 
@@ -1041,29 +1051,67 @@ function calculateTotals(rows, deviceData = null, channelData = null, summaryDat
     });
   }
 
-  // Social Traffic from Channel Report
+  // Social Traffic and Events Per Session from Channel Report
+  // User navigation: Acquisition -> Traffic Acquisition (Session Primary Channel Group) -> Events Per Session
   if (channelData && channelData.rows) {
+    let channelSessions = 0;
+    let channelEvents = 0;
+
     channelData.rows.forEach(row => {
       const rowPeriod = row.dimensionValues.length > 1 ? row.dimensionValues[1]?.value : periodName;
       if (rowPeriod !== periodName) return;
 
       const channel = row.dimensionValues[0].value; // dimension[0] is sessionDefaultChannelGroup
-      // User requested "Organic Social" specifically
+
+      // Social Traffic (User requested "Organic Social" specifically)
       if (channel === 'Organic Social') {
         totals.socialSessions += parseFloat(row.metricValues[0].value);
       }
+
+      // Accumulate Sessions and Events for Events/Session calculation
+      // metricValues[0] = sessions, metricValues[1] = eventCount
+      if (row.metricValues[0] && row.metricValues[1]) {
+        channelSessions += parseFloat(row.metricValues[0].value || 0);
+        channelEvents += parseFloat(row.metricValues[1].value || 0);
+      }
     });
+
+    // Calculate Events Per Session (Total Events / Total Sessions from Channel Report)
+    if (channelSessions > 0) {
+      totals.eventsPerSession = channelEvents / channelSessions;
+    }
+  }
+
+  // Average Engagement Time from Engagement Report
+  // User navigation: Engagement -> Page Path and Screen Class -> Average Engagement Time Per Active User
+  if (engagementData && engagementData.rows) {
+    let totalEngagementDuration = 0;
+
+    engagementData.rows.forEach(row => {
+      const rowPeriod = row.dimensionValues.length > 1 ? row.dimensionValues[1]?.value : periodName;
+      if (rowPeriod !== periodName) return;
+
+      // Sum up userEngagementDuration across all pages
+      totalEngagementDuration += parseFloat(row.metricValues[0]?.value || 0);
+    });
+
+    // Calculate average time on site (Total Engagement Duration / Active Users)
+    // Active Users must come from Summary Report (totals.activeUsers)
+    if (totals.activeUsers > 0) {
+      totals.averageEngagementTime = totalEngagementDuration / totals.activeUsers;
+    } else if (totals.users > 0) {
+      // Fallback to Total Users if Active Users is 0 or missing
+      totals.averageEngagementTime = totalEngagementDuration / totals.users;
+    }
   }
 
   // Derived Metrics
   totals.socialTrafficPercent = totals.sessions > 0 ? (totals.socialSessions / totals.sessions) * 100 : 0;
 
   // Avg Events Per Session (User requested "Average Pages per Session (Events)")
-  // Use direct metric if available (from summary), otherwise calculated
   totals.avgPagesPerSession = totals.eventsPerSession;
 
-  // Avg Time on Site (User Engagement Duration / Total Users)
-  // Use direct metric if available (from summary), otherwise calculated
+  // Avg Time on Site (User Engagement Duration / Active Users)
   totals.avgTimeOnSite = totals.averageEngagementTime;
 
   // Avg Monthly Page Views
@@ -1228,6 +1276,8 @@ function updateCharts(primaryData, comparisonData, primaryTotals, comparisonTota
  * Get chart options with consistent styling
  */
 function getChartOptions(title) {
+  const isLogScale = document.getElementById('logScaleToggle').checked;
+
   return {
     responsive: true,
     maintainAspectRatio: false,
@@ -1246,6 +1296,7 @@ function getChartOptions(title) {
     },
     scales: {
       y: {
+        type: isLogScale ? 'logarithmic' : 'linear',
         ticks: {
           color: '#64748b',
           font: {
@@ -1264,11 +1315,120 @@ function getChartOptions(title) {
           },
         },
         grid: {
-          color: 'rgba(148, 163, 184, 0.2)',
+          display: false,
         },
       },
     },
   };
+}
+
+/**
+ * Fetch and render ranking graph for all properties
+ */
+async function fetchAndRenderRankingGraph() {
+  // Hardcoded list of all properties (ideally this should be dynamic)
+  const allProperties = [
+    { id: '319298560', name: 'Electra' },
+    { id: '357223650', name: 'Luxe' },
+    { id: '365297314', name: 'Onyx' },
+    { id: '443361521', name: 'Solis' },
+    { id: '443402622', name: 'Vortex' }
+  ];
+
+  // Use the current date range from the active mode
+  let dateRange;
+  if (comparisonMode === 'time') {
+    dateRange = {
+      startDate: document.getElementById('startDate1').value,
+      endDate: document.getElementById('endDate1').value
+    };
+  } else {
+    dateRange = getSingleDateRange();
+  }
+
+  try {
+    // Fetch page views for all properties
+    const promises = allProperties.map(async (prop) => {
+      const request = {
+        property: `properties/${prop.id}`,
+        dateRanges: [dateRange],
+        metrics: [{ name: 'screenPageViews' }],
+      };
+
+      const response = await gapi.client.request({
+        path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + prop.id + ':runReport',
+        method: 'POST',
+        body: request,
+      });
+
+      const pageViews = parseInt(response.result.rows?.[0]?.metricValues?.[0]?.value || 0);
+      return { name: prop.name, pageViews: pageViews };
+    });
+
+    const results = await Promise.all(promises);
+
+    // Sort by page views descending
+    results.sort((a, b) => b.pageViews - a.pageViews);
+
+    // Render Chart
+    renderRankingChart(results);
+
+  } catch (error) {
+    console.error('Error fetching ranking data:', error);
+  }
+}
+
+let rankingChart = null;
+
+function renderRankingChart(data) {
+  if (rankingChart) rankingChart.destroy();
+
+  const ctx = document.getElementById('rankingChart').getContext('2d');
+
+  rankingChart = new Chart(ctx, {
+    type: 'bar',
+    indexAxis: 'y', // Horizontal bar chart
+    data: {
+      labels: data.map(d => d.name),
+      datasets: [{
+        label: 'Page Views',
+        data: data.map(d => d.pageViews),
+        backgroundColor: [
+          'rgba(255, 99, 132, 0.8)',
+          'rgba(54, 162, 235, 0.8)',
+          'rgba(255, 206, 86, 0.8)',
+          'rgba(75, 192, 192, 0.8)',
+          'rgba(153, 102, 255, 0.8)'
+        ],
+        borderColor: [
+          'rgba(255, 99, 132, 1)',
+          'rgba(54, 162, 235, 1)',
+          'rgba(255, 206, 86, 1)',
+          'rgba(75, 192, 192, 1)',
+          'rgba(153, 102, 255, 1)'
+        ],
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: false }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(148, 163, 184, 0.2)' },
+          ticks: { color: '#64748b' }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: '#334155', font: { weight: 'bold' } }
+        }
+      }
+    }
+  });
 }
 
 /**
@@ -1306,6 +1466,113 @@ function updateDataTable(data, dateRanges) {
     html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatPercent(engagementRate)}</td>`;
     html += '</tr>';
   });
+
+  html += '</tbody></table>';
+  html += '</tbody></table>';
+  tableContainer.innerHTML = html;
+}
+
+/**
+ * Update charts for property comparison
+ */
+function updateChartsForProperties(data, propertyTotals) {
+  // Destroy existing charts
+  if (trendChart) trendChart.destroy();
+  if (comparisonChart) comparisonChart.destroy();
+
+  const isLogScale = document.getElementById('logScaleToggle').checked;
+
+  // Trend Chart - Line chart showing daily trends for all properties
+  // We need to align dates across properties.
+  // Assuming all properties return data for the same date range.
+  const trendCtx = document.getElementById('trendChart').getContext('2d');
+
+  // Use dates from the first property as labels
+  const firstPropertyData = data[0].data.main.rows || [];
+  const labels = firstPropertyData.map(row => {
+    const date = row.dimensionValues[0].value;
+    return `${date.substring(4, 6)}/${date.substring(6, 8)}`;
+  });
+
+  const datasets = data.map((prop, index) => {
+    const color = index === 0 ? 'rgb(99, 102, 241)' : 'rgb(139, 92, 246)'; // Primary vs Secondary colors
+    return {
+      label: prop.propertyName,
+      data: (prop.data.main.rows || []).map(row => parseFloat(row.metricValues[0].value)), // Users
+      borderColor: color,
+      backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+      tension: 0.4,
+    };
+  });
+
+  trendChart = new Chart(trendCtx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: datasets,
+    },
+    options: getChartOptions('Daily User Trends'),
+  });
+
+  // Comparison Chart - Bar chart comparing totals
+  const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+
+  const comparisonDatasets = data.map((prop, index) => {
+    const color = index === 0 ? 'rgba(99, 102, 241, 0.8)' : 'rgba(139, 92, 246, 0.8)';
+    return {
+      label: prop.propertyName,
+      data: [
+        propertyTotals[index].totals.users,
+        propertyTotals[index].totals.sessions,
+        propertyTotals[index].totals.pageViews
+      ],
+      backgroundColor: color,
+    };
+  });
+
+  comparisonChart = new Chart(comparisonCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Users', 'Sessions', 'Page Views'],
+      datasets: comparisonDatasets,
+    },
+    options: getChartOptions('Property Comparison'),
+  });
+}
+
+/**
+ * Update data table for property comparison
+ */
+function updateDataTableForProperties(data, dateRange) {
+  const tableContainer = document.getElementById('dataTable');
+
+  let html = '<table style="width: 100%; border-collapse: collapse;">';
+  html += '<thead><tr style="border-bottom: 1px solid var(--color-border);">';
+  html += '<th style="padding: var(--spacing-sm); text-align: left; color: var(--color-text-secondary);">Date</th>';
+  data.forEach(prop => {
+    html += `<th style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-secondary);">${prop.propertyName} Users</th>`;
+  });
+  html += '</tr></thead>';
+  html += '<tbody>';
+
+  // Assuming all properties have same number of rows and aligned dates
+  const rowCount = data[0].data.main.rows ? data[0].data.main.rows.length : 0;
+
+  for (let i = 0; i < rowCount; i++) {
+    const row = data[0].data.main.rows[i];
+    const date = row.dimensionValues[0].value;
+
+    html += `<tr style="border-bottom: 1px solid var(--color-border);">`;
+    html += `<td style="padding: var(--spacing-sm); color: var(--color-text-primary);">${formatDateString(date)}</td>`;
+
+    data.forEach(prop => {
+      const propRow = prop.data.main.rows ? prop.data.main.rows[i] : null;
+      const users = propRow ? parseFloat(propRow.metricValues[0].value) : 0;
+      html += `<td style="padding: var(--spacing-sm); text-align: right; color: var(--color-text-primary);">${formatNumber(users)}</td>`;
+    });
+
+    html += '</tr>';
+  }
 
   html += '</tbody></table>';
   tableContainer.innerHTML = html;
@@ -1363,50 +1630,166 @@ function showMessage(elementId, message, type) {
 /**
  * Update metric cards for property comparison mode
  */
+/**
+ * Update metric cards for property comparison mode
+ */
 function updateMetricCardsForProperties(propertyTotals) {
-  // Use first property as baseline, show comparison to it
-  const baseline = propertyTotals[0];
-  const comparison = propertyTotals[1] || baseline;
+  // We need at least 2 properties for comparison
+  if (propertyTotals.length < 2) {
+    console.warn('Property comparison requires at least 2 properties');
+    return;
+  }
 
-  // 1. Page Views
-  document.getElementById('metricPageViews').textContent = formatNumber(baseline.totals.pageViews);
-  updateComparison('comparisonPageViews', baseline.totals.pageViews, comparison.totals.pageViews);
-  document.getElementById('comparisonValuePageViews').textContent = formatNumber(comparison.totals.pageViews);
+  const prop1 = propertyTotals[0];
+  const prop2 = propertyTotals[1];
 
-  // 2. Avg Monthly Page Views
-  document.getElementById('metricAvgMonthlyViews').textContent = formatNumber(baseline.totals.avgMonthlyPageViews);
-  updateComparison('comparisonAvgMonthlyViews', baseline.totals.avgMonthlyPageViews, comparison.totals.avgMonthlyPageViews);
-  document.getElementById('comparisonValueAvgMonthlyViews').textContent = formatNumber(comparison.totals.avgMonthlyPageViews);
+  // Helper to render enhanced property card
+  const renderEnhancedPropertyCard = (elementId, metric, formatFn = formatNumber, isVolume = true) => {
+    const container = document.getElementById(elementId);
+    if (!container) return;
 
-  // 3. Mobile Page Views
-  document.getElementById('metricMobileViews').textContent = formatNumber(baseline.totals.mobilePageViews);
-  updateComparison('comparisonMobileViews', baseline.totals.mobilePageViews, comparison.totals.mobilePageViews);
-  document.getElementById('comparisonValueMobileViews').textContent = formatNumber(comparison.totals.mobilePageViews);
+    const prop1Value = prop1.totals[metric];
+    const prop2Value = prop2.totals[metric];
 
-  // 4. Unique Visitors
-  document.getElementById('metricUsers').textContent = formatNumber(baseline.totals.users);
-  updateComparison('comparisonUsers', baseline.totals.users, comparison.totals.users);
-  document.getElementById('comparisonValueUsers').textContent = formatNumber(comparison.totals.users);
+    // Calculate percentage difference
+    const calcChange = (current, previous) => {
+      if (!previous || previous === 0) return 0;
+      return ((current - previous) / previous) * 100;
+    };
 
-  // 5. Sessions
-  document.getElementById('metricSessions').textContent = formatNumber(baseline.totals.sessions);
-  updateComparison('comparisonSessions', baseline.totals.sessions, comparison.totals.sessions);
-  document.getElementById('comparisonValueSessions').textContent = formatNumber(comparison.totals.sessions);
+    // For time-period changes, we'll show 0% for now (needs previous period data)
+    const prop1Change = 0; // TODO: Calculate from previous period
+    const prop2Change = 0; // TODO: Calculate from previous period
 
-  // 6. Avg Events Per Session
-  document.getElementById('metricPagesPerSession').textContent = baseline.totals.avgPagesPerSession.toFixed(2);
-  updateComparison('comparisonPagesPerSession', baseline.totals.avgPagesPerSession, comparison.totals.avgPagesPerSession);
-  document.getElementById('comparisonValuePagesPerSession').textContent = comparison.totals.avgPagesPerSession.toFixed(2);
+    // Calculate property comparison
+    const maxValue = Math.max(prop1Value, prop2Value);
+    const minValue = Math.min(prop1Value, prop2Value);
+    const ratio = minValue > 0 ? (maxValue / minValue).toFixed(1) : 0;
+    const percentDiff = minValue > 0 ? (((maxValue - minValue) / minValue) * 100).toFixed(0) : 0;
+    const prop1Width = maxValue > 0 ? (prop1Value / maxValue) * 100 : 0;
+    const prop2Width = maxValue > 0 ? (prop2Value / maxValue) * 100 : 0;
 
-  // 7. Avg Time on Site
-  document.getElementById('metricAvgTime').textContent = formatDuration(baseline.totals.avgTimeOnSite);
-  updateComparison('comparisonAvgTime', baseline.totals.avgTimeOnSite, comparison.totals.avgTimeOnSite);
-  document.getElementById('comparisonValueAvgTime').textContent = formatDuration(comparison.totals.avgTimeOnSite);
+    let html = `
+      <!-- Time Period Comparison Section -->
+      <div class="time-period-section">
+        <div class="time-period-label">Current Period vs Previous</div>
+        <div class="time-period-grid">
+          <div class="time-period-property">
+            <div class="time-period-property-name">${prop1.propertyName}</div>
+            <div class="time-period-value-row">
+              <span class="time-period-value">${formatFn(prop1Value)}</span>
+              ${prop1Change !== 0 ? `
+                <span class="time-period-change ${prop1Change >= 0 ? 'positive' : 'negative'}">
+                  ${prop1Change >= 0 ? '↑' : '↓'}${Math.abs(prop1Change).toFixed(1)}%
+                </span>
+              ` : ''}
+            </div>
+          </div>
+          <div class="time-period-property">
+            <div class="time-period-property-name">${prop2.propertyName}</div>
+            <div class="time-period-value-row">
+              <span class="time-period-value">${formatFn(prop2Value)}</span>
+              ${prop2Change !== 0 ? `
+                <span class="time-period-change ${prop2Change >= 0 ? 'positive' : 'negative'}">
+                  ${prop2Change >= 0 ? '↑' : '↓'}${Math.abs(prop2Change).toFixed(1)}%
+                </span>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
 
-  // 8. % Traffic from Social Media
-  document.getElementById('metricSocialTraffic').textContent = formatPercent(baseline.totals.socialTrafficPercent);
-  updateComparison('comparisonSocialTraffic', baseline.totals.socialTrafficPercent, comparison.totals.socialTrafficPercent);
-  document.getElementById('comparisonValueSocialTraffic').textContent = formatPercent(comparison.totals.socialTrafficPercent);
+      <!-- Comparison Divider -->
+      <div class="comparison-divider">
+        <div class="comparison-divider-label">Property Comparison</div>
+      </div>
+
+      <!-- Property 1 Bar -->
+      <div class="property-bar-row">
+        <div class="property-bar-header">
+          <span class="property-bar-name">${prop1.propertyName}</span>
+          <span class="property-bar-value">${formatFn(prop1Value)}</span>
+        </div>
+        <div class="property-bar-container">
+          <div class="property-bar-fill primary" style="width: ${prop1Width}%"></div>
+        </div>
+      </div>
+
+      <!-- Property 2 Bar -->
+      <div class="property-bar-row">
+        <div class="property-bar-header">
+          <span class="property-bar-name">${prop2.propertyName}</span>
+          <span class="property-bar-value">${formatFn(prop2Value)}</span>
+        </div>
+        <div class="property-bar-container">
+          <div class="property-bar-fill secondary" style="width: ${prop2Width}%"></div>
+        </div>
+      </div>
+
+      <!-- Comparison Summary -->
+      <div class="comparison-summary">
+        ${metric.includes('Percent') ?
+        `<strong>Difference:</strong> ${Math.abs(prop1Value - prop2Value).toFixed(1)} percentage points` :
+        `<strong>Ratio:</strong> ${ratio}:1 <span style="margin-left: 12px;">(${percentDiff}% ${prop1Value > prop2Value ? 'higher' : 'lower'})</span>`
+      }
+      </div>
+    `;
+
+    container.innerHTML = html;
+  };
+
+  // Render each metric card
+  renderEnhancedPropertyCard('propertyViewPageViews', 'pageViews', formatNumber, true);
+  renderEnhancedPropertyCard('propertyViewAvgMonthlyViews', 'avgMonthlyPageViews', formatNumber, true);
+  renderEnhancedPropertyCard('propertyViewMobileViews', 'mobilePageViews', formatNumber, true);
+  renderEnhancedPropertyCard('propertyViewUsers', 'users', formatNumber, true);
+  renderEnhancedPropertyCard('propertyViewSessions', 'sessions', formatNumber, true);
+  renderEnhancedPropertyCard('propertyViewPagesPerSession', 'avgPagesPerSession', (v) => v.toFixed(2), false);
+  renderEnhancedPropertyCard('propertyViewAvgTime', 'avgTimeOnSite', formatDuration, false);
+  renderEnhancedPropertyCard('propertyViewSocialTraffic', 'socialTrafficPercent', formatPercent, false);
+
+  // Add insights card after the metrics grid
+  addInsightsCard(prop1, prop2);
+}
+
+function addInsightsCard(prop1, prop2) {
+  // Find the dashboard element and check if insights card already exists
+  const dashboard = document.getElementById('dashboard');
+  let insightsCard = document.getElementById('insightsCard');
+
+  if (!insightsCard) {
+    insightsCard = document.createElement('div');
+    insightsCard.id = 'insightsCard';
+    insightsCard.className = 'insights-card';
+    dashboard.appendChild(insightsCard);
+  }
+
+  // Calculate insights
+  const trafficRatio = (prop1.totals.pageViews / prop2.totals.pageViews).toFixed(1);
+  const engagementProp1 = prop1.totals.avgPagesPerSession;
+  const engagementProp2 = prop2.totals.avgPagesPerSession;
+  const timeRatio = (prop1.totals.avgTimeOnSite / prop2.totals.avgTimeOnSite).toFixed(1);
+
+  insightsCard.innerHTML = `
+    <h2>Key Insights</h2>
+    <div class="insights-grid">
+      <div class="insight-box blue">
+        <div class="insight-label">Traffic Scale</div>
+        <div class="insight-value">${trafficRatio}× ${trafficRatio > 1 ? 'larger' : 'smaller'}</div>
+        <div class="insight-description">${prop1.propertyName} drives ${trafficRatio > 1 ? 'more' : 'less'} traffic</div>
+      </div>
+      <div class="insight-box yellow">
+        <div class="insight-label">Engagement Quality</div>
+        <div class="insight-value">${engagementProp1.toFixed(2)} vs ${engagementProp2.toFixed(2)}</div>
+        <div class="insight-description">Events per session comparison</div>
+      </div>
+      <div class="insight-box purple">
+        <div class="insight-label">Time on Site</div>
+        <div class="insight-value">${timeRatio}× ${timeRatio > 1 ? 'longer' : 'shorter'}</div>
+        <div class="insight-description">${prop1.propertyName} retention comparison</div>
+      </div>
+    </div>
+  `;
 }
 
 /**
@@ -1501,7 +1884,7 @@ function updateDataTableForProperties(propertyData, dateRange) {
   html += '<tbody>';
 
   propertyData.forEach(property => {
-    const totals = calculateTotals(property.data.main.rows || [], property.data.device, property.data.channel, property.data.summary);
+    const totals = calculateTotals(property.data.main.rows || [], property.data.device, property.data.channel, property.data.summary, property.data.engagement);
 
     html += `<tr style="border-bottom: 1px solid var(--color-border);">`;
     html += `<td style="padding: var(--spacing-sm); color: var(--color-text-primary); font-weight: 600;">${property.propertyName}</td>`;
