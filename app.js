@@ -29,6 +29,20 @@ const METRICS = [
 // Chart instances
 let trendChart = null;
 let comparisonChart = null;
+let overviewChart = null;
+let overviewTimeframe = 'ytd'; // 'ytd' or 'fiscal'
+
+// Property Metadata (ID, Name, Logo)
+const PROPERTIES = [
+  { id: '352990478', name: 'RMSMC', logo: 'images/logos/rmsmc.png' },
+  { id: '321341958', name: 'Collegian', logo: 'images/logos/collegian.png' },
+  { id: '352970688', name: 'KCSU', logo: 'images/logos/kcsu.png' },
+  { id: '397333725', name: 'Fifty03', logo: 'images/logos/fifty03.png' },
+  { id: '352975714', name: 'College Avenue', logo: 'images/logos/college-avenue.png' }
+];
+
+// Preloaded Logo Images
+const propertyLogos = {};
 
 // ===================================
 // Initialization
@@ -49,6 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize date inputs with default values
   initializeDateInputs();
+
+  // Preload logos
+  preloadLogos();
 });
 
 /**
@@ -167,11 +184,16 @@ function handleAuthCallback(resp) {
  * Update UI after successful authentication
  */
 function showAuthenticatedUI() {
+  console.log('showAuthenticatedUI called');
   // Hide auth required message
   document.getElementById('authRequired').classList.add('hidden');
 
   // Show configuration panel
   document.getElementById('configPanel').classList.remove('hidden');
+
+  // Show Overview Section and Fetch Data
+  document.getElementById('overviewSection').classList.remove('hidden');
+  fetchAndRenderOverviewGraph();
 
   // Show user info (if available from Google Identity)
   const signInButton = document.getElementById('signInButton');
@@ -222,6 +244,7 @@ function handleSignOut() {
   // Reset UI
   document.getElementById('authRequired').classList.remove('hidden');
   document.getElementById('configPanel').classList.add('hidden');
+  document.getElementById('overviewSection').classList.add('hidden');
   document.getElementById('dashboard').classList.add('hidden');
   document.getElementById('signInButton').classList.remove('hidden');
   document.getElementById('userInfo').classList.add('hidden');
@@ -276,6 +299,74 @@ function setupEventListeners() {
       }
     }
   });
+
+
+  // Overview Graph Controls
+  document.getElementById('overviewYTD').addEventListener('click', () => {
+    setOverviewTimeframe('ytd');
+  });
+
+  document.getElementById('overviewFiscal').addEventListener('click', () => {
+    setOverviewTimeframe('fiscal');
+  });
+
+  document.getElementById('overviewLogScale').addEventListener('click', () => {
+    if (window.lastOverviewData) {
+      renderOverviewChart(window.lastOverviewData);
+    }
+  });
+}
+
+/**
+ * Preload property logos for chart use
+ */
+function preloadLogos() {
+  const targetSize = 32; // Size in pixels for the logos on the chart
+
+  PROPERTIES.forEach(prop => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; // Allow canvas manipulation
+
+    img.onload = function () {
+      // Create a canvas to resize the image
+      const canvas = document.createElement('canvas');
+      canvas.width = targetSize;
+      canvas.height = targetSize;
+      const ctx = canvas.getContext('2d');
+
+      // Draw the image scaled to the target size
+      ctx.drawImage(img, 0, 0, targetSize, targetSize);
+
+      // Store the canvas as the logo (Chart.js can use canvas as pointStyle)
+      propertyLogos[prop.id] = canvas;
+    };
+
+    img.src = prop.logo;
+  });
+}
+
+/**
+ * Set Overview Timeframe
+ */
+function setOverviewTimeframe(mode) {
+  overviewTimeframe = mode;
+
+  // Update buttons
+  const ytdBtn = document.getElementById('overviewYTD');
+  const fiscalBtn = document.getElementById('overviewFiscal');
+
+  if (mode === 'ytd') {
+    ytdBtn.classList.replace('btn-outline', 'btn-primary');
+    fiscalBtn.classList.replace('btn-primary', 'btn-outline');
+  } else {
+    ytdBtn.classList.replace('btn-primary', 'btn-outline');
+    fiscalBtn.classList.replace('btn-outline', 'btn-primary');
+  }
+
+  // Fetch new data
+  if (gapiInited && gisInited && accessToken) {
+    fetchAndRenderOverviewGraph();
+  }
 }
 
 /**
@@ -676,8 +767,8 @@ async function handleFetchData() {
       };
     }
 
-    // Fetch and render ranking graph (always)
-    fetchAndRenderRankingGraph();
+    // Fetch and render overview graph (always)
+    fetchAndRenderOverviewGraph();
 
     // Hide loading, show dashboard
     document.getElementById('loadingState').classList.add('hidden');
@@ -1323,108 +1414,286 @@ function getChartOptions(title) {
 }
 
 /**
- * Fetch and render ranking graph for all properties
+ * Fetch and render overview graph for all properties
  */
-async function fetchAndRenderRankingGraph() {
-  // Hardcoded list of all properties (ideally this should be dynamic)
-  const allProperties = [
-    { id: '319298560', name: 'Electra' },
-    { id: '357223650', name: 'Luxe' },
-    { id: '365297314', name: 'Onyx' },
-    { id: '443361521', name: 'Solis' },
-    { id: '443402622', name: 'Vortex' }
-  ];
+async function fetchAndRenderOverviewGraph() {
+  console.log('fetchAndRenderOverviewGraph called');
 
-  // Use the current date range from the active mode
-  let dateRange;
-  if (comparisonMode === 'time') {
-    dateRange = {
-      startDate: document.getElementById('startDate1').value,
-      endDate: document.getElementById('endDate1').value
-    };
+  const chartContainer = document.getElementById('overviewChart').parentElement;
+
+  // Show loading state
+  const loadingDiv = document.createElement('div');
+  loadingDiv.id = 'overviewLoading';
+  loadingDiv.className = 'flex-center h-full';
+  loadingDiv.innerHTML = '<div class="spinner"></div><span class="ml-sm text-muted">Loading overview data...</span>';
+
+  // Ensure relative positioning for absolute loading overlay if needed, 
+  // or just append if we want to replace content. 
+  // Chart.js uses the canvas, so we can overlay or hide the canvas.
+  // Let's just append a loading overlay.
+  chartContainer.style.position = 'relative';
+  loadingDiv.style.position = 'absolute';
+  loadingDiv.style.top = '0';
+  loadingDiv.style.left = '0';
+  loadingDiv.style.width = '100%';
+  loadingDiv.style.height = '100%';
+  loadingDiv.style.background = 'rgba(255, 255, 255, 0.8)';
+  loadingDiv.style.zIndex = '10';
+
+  // Remove existing loading/error if any
+  const existingLoading = document.getElementById('overviewLoading');
+  if (existingLoading) existingLoading.remove();
+  const existingError = document.getElementById('overviewError');
+  if (existingError) existingError.remove();
+
+  chartContainer.appendChild(loadingDiv);
+
+  // Determine date range based on selected timeframe
+  const today = new Date();
+  let startDate, endDate;
+
+  if (overviewTimeframe === 'ytd') {
+    // Year to Date (Jan 1 to Today)
+    startDate = formatDate(new Date(today.getFullYear(), 0, 1));
+    endDate = formatDate(today);
   } else {
-    dateRange = getSingleDateRange();
+    // Fiscal Year (July 1 - June 30)
+    const currentYear = today.getFullYear();
+    const isBeforeJuly = today.getMonth() < 6; // Jan=0, June=5
+
+    if (isBeforeJuly) {
+      startDate = formatDate(new Date(currentYear - 1, 6, 1));
+      endDate = formatDate(new Date(currentYear, 5, 30));
+    } else {
+      startDate = formatDate(new Date(currentYear, 6, 1));
+      endDate = formatDate(new Date(currentYear + 1, 5, 30));
+    }
   }
 
+  const dateRange = { startDate, endDate };
+
   try {
-    // Fetch page views for all properties
-    const promises = allProperties.map(async (prop) => {
-      const request = {
-        property: `properties/${prop.id}`,
-        dateRanges: [dateRange],
-        metrics: [{ name: 'screenPageViews' }],
-      };
+    // Fetch daily page views for all properties
+    // Use map to create promises, but catch individual errors to prevent Promise.all from failing entirely
+    // OR use Promise.allSettled
+    const promises = PROPERTIES.map(async (prop) => {
+      try {
+        const request = {
+          property: `properties/${prop.id}`,
+          dateRanges: [dateRange],
+          metrics: [{ name: 'screenPageViews' }],
+          dimensions: [{ name: 'date' }]
+        };
 
-      const response = await gapi.client.request({
-        path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + prop.id + ':runReport',
-        method: 'POST',
-        body: request,
-      });
+        const response = await gapi.client.request({
+          path: 'https://analyticsdata.googleapis.com/v1beta/properties/' + prop.id + ':runReport',
+          method: 'POST',
+          body: request,
+        });
 
-      const pageViews = parseInt(response.result.rows?.[0]?.metricValues?.[0]?.value || 0);
-      return { name: prop.name, pageViews: pageViews };
+        return {
+          id: prop.id,
+          name: prop.name,
+          rows: response.result.rows || []
+        };
+      } catch (err) {
+        console.error(`Error fetching data for ${prop.name} (${prop.id}):`, err);
+        return null; // Return null for failed requests
+      }
     });
 
     const results = await Promise.all(promises);
 
-    // Sort by page views descending
-    results.sort((a, b) => b.pageViews - a.pageViews);
+    // Filter out failed requests
+    const validResults = results.filter(r => r !== null);
+
+    if (validResults.length === 0) {
+      throw new Error('No data available for any property. Please check permissions.');
+    }
+
+    // Store for re-rendering (log scale)
+    window.lastOverviewData = validResults;
+
+    // Remove loading
+    loadingDiv.remove();
 
     // Render Chart
-    renderRankingChart(results);
+    renderOverviewChart(validResults);
 
   } catch (error) {
-    console.error('Error fetching ranking data:', error);
+    console.error('Error fetching overview data:', error);
+    loadingDiv.remove();
+
+    // Show error message in container
+    const errorDiv = document.createElement('div');
+    errorDiv.id = 'overviewError';
+    errorDiv.className = 'flex-center h-full text-danger';
+    errorDiv.style.flexDirection = 'column';
+    errorDiv.innerHTML = `<p>Failed to load graph data.</p><p class="text-sm text-muted">${error.message}</p>`;
+    chartContainer.appendChild(errorDiv);
   }
 }
 
-let rankingChart = null;
+function renderOverviewChart(data) {
+  if (overviewChart) overviewChart.destroy();
 
-function renderRankingChart(data) {
-  if (rankingChart) rankingChart.destroy();
+  const ctx = document.getElementById('overviewChart').getContext('2d');
+  const isLogScale = document.getElementById('overviewLogScale').checked;
 
-  const ctx = document.getElementById('rankingChart').getContext('2d');
+  // Helper function to get week start date (Sunday) for a given date
+  function getWeekStart(dateStr) {
+    // dateStr format: YYYYMMDD
+    const year = parseInt(dateStr.substring(0, 4));
+    const month = parseInt(dateStr.substring(4, 6)) - 1; // 0-indexed
+    const day = parseInt(dateStr.substring(6, 8));
+    const date = new Date(year, month, day);
 
-  rankingChart = new Chart(ctx, {
-    type: 'bar',
-    indexAxis: 'y', // Horizontal bar chart
+    // Get Sunday of this week
+    const dayOfWeek = date.getDay();
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - dayOfWeek);
+
+    return weekStart;
+  }
+
+  function formatWeekLabel(weekStart) {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+
+    const startStr = `${(weekStart.getMonth() + 1).toString().padStart(2, '0')}/${weekStart.getDate().toString().padStart(2, '0')}`;
+    const endStr = `${(weekEnd.getMonth() + 1).toString().padStart(2, '0')}/${weekEnd.getDate().toString().padStart(2, '0')}`;
+
+    return `${startStr}-${endStr}`;
+  }
+
+  // Aggregate data by week for each property
+  const weeklyData = data.map(prop => {
+    const weekMap = new Map();
+
+    prop.rows.forEach(row => {
+      const dateStr = row.dimensionValues[0].value;
+      const weekStart = getWeekStart(dateStr);
+      const weekKey = weekStart.toISOString().split('T')[0];
+
+      const views = parseFloat(row.metricValues[0].value || 0);
+
+      if (weekMap.has(weekKey)) {
+        weekMap.set(weekKey, weekMap.get(weekKey) + views);
+      } else {
+        weekMap.set(weekKey, views);
+      }
+    });
+
+    return {
+      id: prop.id,
+      name: prop.name,
+      weekMap: weekMap
+    };
+  });
+
+  // Get all unique week keys across all properties and sort them
+  const allWeeks = new Set();
+  weeklyData.forEach(prop => {
+    prop.weekMap.forEach((_, weekKey) => allWeeks.add(weekKey));
+  });
+
+  const sortedWeeks = Array.from(allWeeks).sort();
+
+  // Create labels from sorted weeks
+  const labels = sortedWeeks.map(weekKey => {
+    const weekStart = new Date(weekKey);
+    return formatWeekLabel(weekStart);
+  });
+
+  // Define colors for the 5 properties
+  const colors = [
+    '#3b82f6', // Blue
+    '#10b981', // Emerald
+    '#f59e0b', // Amber
+    '#ef4444', // Red
+    '#8b5cf6'  // Violet
+  ];
+
+  const datasets = weeklyData.map((prop, index) => {
+    // Map weekly data to align with sorted weeks
+    const alignedData = sortedWeeks.map(weekKey => {
+      return prop.weekMap.get(weekKey) || 0;
+    });
+
+    // Create pointRadius array: 0 for all points except the last one (which shows the logo)
+    const pointRadiusArray = alignedData.map((_, idx) => idx === alignedData.length - 1 ? 32 : 0);
+
+    // Create pointStyle array: only use logo for the last point
+    const pointStyleArray = alignedData.map((_, idx) =>
+      idx === alignedData.length - 1 ? (propertyLogos[prop.id] || 'circle') : 'circle'
+    );
+
+    return {
+      label: prop.name,
+      data: alignedData,
+      borderColor: colors[index % colors.length],
+      backgroundColor: colors[index % colors.length],
+      borderWidth: 3, // Thicker lines
+      tension: 0.4,
+      pointStyle: pointStyleArray,
+      radius: pointRadiusArray,
+      pointRadius: pointRadiusArray,
+      hoverRadius: 8,
+      pointHoverRadius: 8,
+      pointBackgroundColor: 'white',
+    };
+  });
+
+  console.log('Rendering Overview Chart (v5) with radius 4');
+
+  overviewChart = new Chart(ctx, {
+    type: 'line',
     data: {
-      labels: data.map(d => d.name),
-      datasets: [{
-        label: 'Page Views',
-        data: data.map(d => d.pageViews),
-        backgroundColor: [
-          'rgba(255, 99, 132, 0.8)',
-          'rgba(54, 162, 235, 0.8)',
-          'rgba(255, 206, 86, 0.8)',
-          'rgba(75, 192, 192, 0.8)',
-          'rgba(153, 102, 255, 0.8)'
-        ],
-        borderColor: [
-          'rgba(255, 99, 132, 1)',
-          'rgba(54, 162, 235, 1)',
-          'rgba(255, 206, 86, 1)',
-          'rgba(75, 192, 192, 1)',
-          'rgba(153, 102, 255, 1)'
-        ],
-        borderWidth: 1
-      }]
+      labels: labels,
+      datasets: datasets
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: {
+        mode: 'index',
+        intersect: false,
+      },
       plugins: {
-        legend: { display: false },
-        title: { display: false }
+        legend: {
+          position: 'bottom',
+          labels: {
+            usePointStyle: false, // Use boxes instead of circles
+            boxWidth: 15,
+            boxHeight: 15,
+            padding: 20,
+            font: { family: 'Inter', size: 12 }
+          }
+        },
+        tooltip: {
+          usePointStyle: true,
+          padding: 12,
+          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          titleFont: { family: 'Inter', size: 13 },
+          bodyFont: { family: 'Inter', size: 12 }
+        }
       },
       scales: {
         x: {
-          grid: { color: 'rgba(148, 163, 184, 0.2)' },
-          ticks: { color: '#64748b' }
+          grid: { display: false },
+          ticks: {
+            color: '#64748b',
+            maxTicksLimit: 12 // Limit x-axis labels
+          }
         },
         y: {
-          grid: { display: false },
-          ticks: { color: '#334155', font: { weight: 'bold' } }
+          type: isLogScale ? 'logarithmic' : 'linear',
+          grid: { color: 'rgba(148, 163, 184, 0.1)' },
+          beginAtZero: false, // Don't force y-axis to start at 0
+          ticks: {
+            color: '#64748b',
+            maxTicksLimit: 20 // More tick marks for better granularity
+          }
         }
       }
     }

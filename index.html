@@ -228,18 +228,37 @@
         <div id="configMessage" class="hidden mt-lg"></div>
       </div>
 
-      <!-- Dashboard -->
-      <div id="dashboard" class="hidden" style="margin-top: 3rem;">
-        <!-- Ranking Chart (Home Page Graph) -->
+      <!-- Overview Section (Auto-loaded) -->
+      <div id="overviewSection" class="hidden" style="margin-top: 3rem;">
+        <!-- Property Performance Overview Graph -->
         <div class="card mb-xl">
-          <div class="card-header">
-            <h3 class="card-title">🏆 Property Ranking</h3>
-            <p class="card-subtitle">Top performing properties by page views</p>
+          <div class="card-header flex-between">
+            <div>
+              <h3 class="card-title">📈 Property Performance Overview</h3>
+              <p class="card-subtitle">Comparative page views across all properties</p>
+            </div>
+            <div class="flex gap-md align-center">
+              <!-- Timeframe Toggle -->
+              <div class="btn-group">
+                <button id="overviewYTD" class="btn btn-sm btn-primary">YTD</button>
+                <button id="overviewFiscal" class="btn btn-sm btn-outline">Fiscal Year</button>
+              </div>
+
+              <!-- Log Scale Toggle -->
+              <label class="checkbox-label text-sm">
+                <input type="checkbox" id="overviewLogScale"> Log Scale
+              </label>
+            </div>
           </div>
-          <div class="chart-container" style="height: 250px;">
-            <canvas id="rankingChart"></canvas>
+          <div class="chart-container" style="height: 500px;">
+            <canvas id="overviewChart"></canvas>
           </div>
         </div>
+      </div>
+
+      <!-- Dashboard -->
+      <div id="dashboard" class="hidden" style="margin-top: 3rem;">
+
 
         <!-- Metrics Grid -->
         <div class="grid grid-4 mb-xl">
@@ -467,8 +486,14 @@
   <!-- Configuration -->
   <script src="config.js"></script>
 
-  <!-- Application Script -->
-  <script src="app.js"></script>
+  <!-- Application Logic -->
+  <script src="app.js?v=11"></script>
+</body>
+
+</html>
+
+<!-- Application Script -->
+<script src="app.js"></script>
 </body>
 
 </html>
