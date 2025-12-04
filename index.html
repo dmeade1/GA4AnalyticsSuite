@@ -85,8 +85,17 @@
         </div>
 
         <div class="grid grid-2">
-          <!-- Comparison Mode Selector -->
+          <!-- Analysis Type Selector -->
           <div class="form-group">
+            <label class="form-label" for="analysisType">Analysis Type</label>
+            <select id="analysisType" class="form-select" aria-label="Analysis Type">
+              <option value="standard">Standard Analysis</option>
+              <option value="category">Content Category Analysis</option>
+            </select>
+          </div>
+
+          <!-- Comparison Mode Selector (Standard Analysis) -->
+          <div class="form-group" id="comparisonModeGroup">
             <label class="form-label" for="comparisonMode">Comparison Type</label>
             <select id="comparisonMode" class="form-select" aria-label="Comparison Mode">
               <option value="time">Time Period Comparison</option>
@@ -94,7 +103,7 @@
             </select>
           </div>
 
-          <!-- GA4 Property Configuration (Time Comparison Mode) -->
+          <!-- GA4 Property Configuration (Time Comparison Mode & Category Analysis) -->
           <div class="form-group" id="singlePropertyGroup">
             <label class="form-label" for="propertyId">Select Property</label>
             <select id="propertyId" class="form-select" aria-label="Select GA4 Property">
@@ -105,6 +114,23 @@
               <option value="397333725">Fifty03'</option>
               <option value="352975714">College Avenue</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Content Categories Configuration (Category Analysis Mode) -->
+        <div id="categoryConfigGroup" class="hidden mt-md">
+          <h4 class="text-sm font-semibold mb-sm">Content Categories</h4>
+          <p class="text-xs text-muted mb-md">Define categories by URL pattern (e.g., "/news/" matches all pages
+            containing that path)</p>
+
+          <div id="categoriesContainer" class="grid grid-2 gap-sm">
+            <!-- Categories will be injected here by JS -->
+          </div>
+
+          <div class="mt-sm">
+            <button id="addCategoryBtn" class="btn btn-sm btn-outline">
+              + Add Category
+            </button>
           </div>
         </div>
 
@@ -487,7 +513,7 @@
   <script src="config.js"></script>
 
   <!-- Application Logic -->
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=18"></script>
 </body>
 
 </html>

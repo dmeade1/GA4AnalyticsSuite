@@ -1,0 +1,733 @@
+{
+  "collegian": {
+    "site": "The Rocky Mountain Collegian",
+    "url": "https://collegian.com",
+    "total_categories": 135,
+    "categories": [
+      {
+        "name": "About Us",
+        "slug": "about-us",
+        "url": "https://collegian.com/category/about-us/"
+      },
+      {
+        "name": "April Fools\u2019 Day",
+        "slug": "april-fools",
+        "url": "https://collegian.com/category/april-fools/"
+      },
+      {
+        "name": "Articles",
+        "slug": "articles",
+        "url": "https://collegian.com/category/articles/"
+      },
+      {
+        "name": "Arts and Entertainment",
+        "slug": "aande",
+        "url": "https://collegian.com/category/aande/"
+      },
+      {
+        "name": "Campus & Local Arts",
+        "slug": "campus-local-arts",
+        "url": "https://collegian.com/category/campus-local-arts/"
+      },
+      {
+        "name": "Collegian Reviews",
+        "slug": "collegian-reviews",
+        "url": "https://collegian.com/category/collegian-reviews/"
+      },
+      {
+        "name": "Entertainment",
+        "slug": "entertainment",
+        "url": "https://collegian.com/category/entertainment/"
+      },
+      {
+        "name": "Events",
+        "slug": "events-aande",
+        "url": "https://collegian.com/category/events-aande/"
+      },
+      {
+        "name": "Features",
+        "slug": "features-aande",
+        "url": "https://collegian.com/category/features-aande/"
+      },
+      {
+        "name": "Horoscopes",
+        "slug": "horoscopes",
+        "url": "https://collegian.com/category/horoscopes/"
+      },
+      {
+        "name": "Meet the Artist",
+        "slug": "meet-the-artist",
+        "url": "https://collegian.com/category/meet-the-artist/"
+      },
+      {
+        "name": "Music",
+        "slug": "acmusic",
+        "url": "https://collegian.com/category/acmusic/"
+      },
+      {
+        "name": "Espa\u00f1ol",
+        "slug": "espanol",
+        "url": "https://collegian.com/category/espanol/"
+      },
+      {
+        "name": "Homepage",
+        "slug": "featured",
+        "url": "https://collegian.com/category/featured/"
+      },
+      {
+        "name": "Life and Culture",
+        "slug": "landc",
+        "url": "https://collegian.com/category/landc/"
+      },
+      {
+        "name": "Community Events",
+        "slug": "community-events",
+        "url": "https://collegian.com/category/community-events/"
+      },
+      {
+        "name": "Cultural Resource Centers",
+        "slug": "cultural-resource-centers",
+        "url": "https://collegian.com/category/cultural-resource-centers/"
+      },
+      {
+        "name": "Culture and Community",
+        "slug": "culture",
+        "url": "https://collegian.com/category/culture/"
+      },
+      {
+        "name": "Culture",
+        "slug": "culture-2",
+        "url": "https://collegian.com/category/culture-2/"
+      },
+      {
+        "name": "Features",
+        "slug": "features-culture",
+        "url": "https://collegian.com/category/features-culture/"
+      },
+      {
+        "name": "Food",
+        "slug": "food",
+        "url": "https://collegian.com/category/food/"
+      },
+      {
+        "name": "Fort Collins Life",
+        "slug": "fortcollinslife",
+        "url": "https://collegian.com/category/fortcollinslife/"
+      },
+      {
+        "name": "History",
+        "slug": "history",
+        "url": "https://collegian.com/category/history/"
+      },
+      {
+        "name": "Student Life",
+        "slug": "student-life",
+        "url": "https://collegian.com/category/student-life/"
+      },
+      {
+        "name": "News",
+        "slug": "news",
+        "url": "https://collegian.com/category/news/"
+      },
+      {
+        "name": "2024 Elections",
+        "slug": "2024-elections",
+        "url": "https://collegian.com/category/2024-elections/"
+      },
+      {
+        "name": "Campus",
+        "slug": "campus",
+        "url": "https://collegian.com/category/campus/"
+      },
+      {
+        "name": "ASCSU",
+        "slug": "ascsu",
+        "url": "https://collegian.com/category/ascsu/"
+      },
+      {
+        "name": "ASCSU Elections",
+        "slug": "ascsu-elections",
+        "url": "https://collegian.com/category/ascsu-elections/"
+      },
+      {
+        "name": "Crime",
+        "slug": "crime",
+        "url": "https://collegian.com/category/crime/"
+      },
+      {
+        "name": "Investigative Reporting",
+        "slug": "investigative-reporting",
+        "url": "https://collegian.com/category/investigative-reporting/"
+      },
+      {
+        "name": "Midterm Voter Guide",
+        "slug": "midterms-voter-guide",
+        "url": "https://collegian.com/category/midterms-voter-guide/"
+      },
+      {
+        "name": "Municipal elections",
+        "slug": "municipal-elections",
+        "url": "https://collegian.com/category/municipal-elections/"
+      },
+      {
+        "name": "National",
+        "slug": "national",
+        "url": "https://collegian.com/category/national/"
+      },
+      {
+        "name": "News Blogs",
+        "slug": "life2",
+        "url": "https://collegian.com/category/life2/"
+      },
+      {
+        "name": "Politics",
+        "slug": "news-news",
+        "url": "https://collegian.com/category/news-news/"
+      },
+      {
+        "name": "Opinion",
+        "slug": "opinion",
+        "url": "https://collegian.com/category/opinion/"
+      },
+      {
+        "name": "Climate Column",
+        "slug": "climate-column",
+        "url": "https://collegian.com/category/climate-column/"
+      },
+      {
+        "name": "Collegian Columnists",
+        "slug": "collegian-columnists",
+        "url": "https://collegian.com/category/collegian-columnists/"
+      },
+      {
+        "name": "Collegian Sex Column",
+        "slug": "collegian-sex-column",
+        "url": "https://collegian.com/category/collegian-sex-column/"
+      },
+      {
+        "name": "Editorials",
+        "slug": "editorials",
+        "url": "https://collegian.com/category/editorials/"
+      },
+      {
+        "name": "Goodbye Columns",
+        "slug": "goodbye-columns",
+        "url": "https://collegian.com/category/goodbye-columns/"
+      },
+      {
+        "name": "Guest Columnists",
+        "slug": "guest-columnists",
+        "url": "https://collegian.com/category/guest-columnists/"
+      },
+      {
+        "name": "Letters from the Editor",
+        "slug": "letters-from-the-editor",
+        "url": "https://collegian.com/category/letters-from-the-editor/"
+      },
+      {
+        "name": "Letters to the Editor",
+        "slug": "letters-to-the-editor",
+        "url": "https://collegian.com/category/letters-to-the-editor/"
+      },
+      {
+        "name": "Seriously",
+        "slug": "seriously",
+        "url": "https://collegian.com/category/seriously/"
+      },
+      {
+        "name": "Science",
+        "slug": "science",
+        "url": "https://collegian.com/category/science/"
+      },
+      {
+        "name": "Cannabis",
+        "slug": "cannabis",
+        "url": "https://collegian.com/category/cannabis/"
+      },
+      {
+        "name": "Health & Medicine",
+        "slug": "health-medicine",
+        "url": "https://collegian.com/category/health-medicine/"
+      },
+      {
+        "name": "Research",
+        "slug": "research",
+        "url": "https://collegian.com/category/research/"
+      },
+      {
+        "name": "Sci-Features",
+        "slug": "sci-features",
+        "url": "https://collegian.com/category/sci-features/"
+      },
+      {
+        "name": "Sustainability & Environment",
+        "slug": "sustainability-environment",
+        "url": "https://collegian.com/category/sustainability-environment/"
+      },
+      {
+        "name": "Sports",
+        "slug": "sports",
+        "url": "https://collegian.com/category/sports/"
+      },
+      {
+        "name": "Columns",
+        "slug": "columns",
+        "url": "https://collegian.com/category/columns/"
+      },
+      {
+        "name": "Community Sports",
+        "slug": "communitysports",
+        "url": "https://collegian.com/category/communitysports/"
+      },
+      {
+        "name": "CSU Club",
+        "slug": "club_sports",
+        "url": "https://collegian.com/category/club_sports/"
+      },
+      {
+        "name": "Recreation",
+        "slug": "recreation",
+        "url": "https://collegian.com/category/recreation/"
+      },
+      {
+        "name": "Fall",
+        "slug": "fall-sports",
+        "url": "https://collegian.com/category/fall-sports/"
+      },
+      {
+        "name": "Cross Country",
+        "slug": "cross-country",
+        "url": "https://collegian.com/category/cross-country/"
+      },
+      {
+        "name": "Football",
+        "slug": "football",
+        "url": "https://collegian.com/category/football/"
+      },
+      {
+        "name": "NFL Draft Profiles",
+        "slug": "nfl-draft-profiles",
+        "url": "https://collegian.com/category/nfl-draft-profiles/"
+      },
+      {
+        "name": "Soccer",
+        "slug": "soccer",
+        "url": "https://collegian.com/category/soccer/"
+      },
+      {
+        "name": "Volleyball",
+        "slug": "volleyball-sports",
+        "url": "https://collegian.com/category/volleyball-sports/"
+      },
+      {
+        "name": "Fantasy Football",
+        "slug": "fantasy-football",
+        "url": "https://collegian.com/category/fantasy-football/"
+      },
+      {
+        "name": "Features",
+        "slug": "features-sports",
+        "url": "https://collegian.com/category/features-sports/"
+      },
+      {
+        "name": "NCAA",
+        "slug": "ncaa",
+        "url": "https://collegian.com/category/ncaa/"
+      },
+      {
+        "name": "Recaps",
+        "slug": "recaps",
+        "url": "https://collegian.com/category/recaps/"
+      },
+      {
+        "name": "Spring",
+        "slug": "spring-sports",
+        "url": "https://collegian.com/category/spring-sports/"
+      },
+      {
+        "name": "Golf",
+        "slug": "golf",
+        "url": "https://collegian.com/category/golf/"
+      },
+      {
+        "name": "Softball",
+        "slug": "softball",
+        "url": "https://collegian.com/category/softball/"
+      },
+      {
+        "name": "Spring Camp",
+        "slug": "spring-camp",
+        "url": "https://collegian.com/category/spring-camp/"
+      },
+      {
+        "name": "Tennis",
+        "slug": "tennis",
+        "url": "https://collegian.com/category/tennis/"
+      },
+      {
+        "name": "Track and Field",
+        "slug": "track-and-field",
+        "url": "https://collegian.com/category/track-and-field/"
+      },
+      {
+        "name": "Transfers & Recruitment",
+        "slug": "transfers-recruitment",
+        "url": "https://collegian.com/category/transfers-recruitment/"
+      },
+      {
+        "name": "Trash Talk",
+        "slug": "trash-talk",
+        "url": "https://collegian.com/category/trash-talk/"
+      },
+      {
+        "name": "Winter",
+        "slug": "winter-sports",
+        "url": "https://collegian.com/category/winter-sports/"
+      },
+      {
+        "name": "Basketball",
+        "slug": "basketball",
+        "url": "https://collegian.com/category/basketball/"
+      },
+      {
+        "name": "Men\u2019s Basketball",
+        "slug": "mens_bball",
+        "url": "https://collegian.com/category/mens_bball/"
+      },
+      {
+        "name": "Women\u2019s Basketball",
+        "slug": "womens_bball",
+        "url": "https://collegian.com/category/womens_bball/"
+      },
+      {
+        "name": "Swim and Dive",
+        "slug": "swim-dive",
+        "url": "https://collegian.com/category/swim-dive/"
+      },
+      {
+        "name": "Blogs",
+        "slug": "blogs",
+        "url": "https://collegian.com/category/blogs/"
+      },
+      {
+        "name": "Living the Alternative",
+        "slug": "altlife",
+        "url": "https://collegian.com/category/altlife/"
+      },
+      {
+        "name": "Breaking",
+        "slug": "break",
+        "url": "https://collegian.com/category/break/"
+      },
+      {
+        "name": "Economics",
+        "slug": "economics",
+        "url": "https://collegian.com/category/economics/"
+      },
+      {
+        "name": "Election",
+        "slug": "election",
+        "url": "https://collegian.com/category/election/"
+      },
+      {
+        "name": "Featured Stories",
+        "slug": "featured-stories",
+        "url": "https://collegian.com/category/featured-stories/"
+      },
+      {
+        "name": "Local",
+        "slug": "local",
+        "url": "https://collegian.com/category/local/"
+      },
+      {
+        "name": "City",
+        "slug": "city",
+        "url": "https://collegian.com/category/city/"
+      },
+      {
+        "name": "Loose Stems",
+        "slug": "loose-stems",
+        "url": "https://collegian.com/category/loose-stems/"
+      },
+      {
+        "name": "Media",
+        "slug": "media",
+        "url": "https://collegian.com/category/media/"
+      },
+      {
+        "name": "Comics",
+        "slug": "comics",
+        "url": "https://collegian.com/category/comics/"
+      },
+      {
+        "name": "Focus Photos",
+        "slug": "focusphotos",
+        "url": "https://collegian.com/category/focusphotos/"
+      },
+      {
+        "name": "Frame by Frame",
+        "slug": "frame-by-frame",
+        "url": "https://collegian.com/category/frame-by-frame/"
+      },
+      {
+        "name": "Galleries",
+        "slug": "galleries",
+        "url": "https://collegian.com/category/galleries/"
+      },
+      {
+        "name": "Illustrations",
+        "slug": "illustrations",
+        "url": "https://collegian.com/category/illustrations/"
+      },
+      {
+        "name": "Meet the Photographer",
+        "slug": "meetthephotographer",
+        "url": "https://collegian.com/category/meetthephotographer/"
+      },
+      {
+        "name": "Multimedia",
+        "slug": "multimedia",
+        "url": "https://collegian.com/category/multimedia/"
+      },
+      {
+        "name": "Photo Stories",
+        "slug": "photostory",
+        "url": "https://collegian.com/category/photostory/"
+      },
+      {
+        "name": "Photographer on the street",
+        "slug": "photographer-on-the-street",
+        "url": "https://collegian.com/category/photographer-on-the-street/"
+      },
+      {
+        "name": "Orange Cord",
+        "slug": "orangecord",
+        "url": "https://collegian.com/category/orangecord/"
+      },
+      {
+        "name": "CTV Shows",
+        "slug": "ctv_shows",
+        "url": "https://collegian.com/category/ctv_shows/"
+      },
+      {
+        "name": "science",
+        "slug": "science-2",
+        "url": "https://collegian.com/category/science-2/"
+      },
+      {
+        "name": "Special Editions",
+        "slug": "special-editions",
+        "url": "https://collegian.com/category/special-editions/"
+      },
+      {
+        "name": "Beer Edition",
+        "slug": "beer-edition",
+        "url": "https://collegian.com/category/beer-edition/"
+      },
+      {
+        "name": "Black History Month",
+        "slug": "black-history-month",
+        "url": "https://collegian.com/category/black-history-month/"
+      },
+      {
+        "name": "Campus in Contention",
+        "slug": "campus-in-contention",
+        "url": "https://collegian.com/category/campus-in-contention/"
+      },
+      {
+        "name": "Freedom of Speech",
+        "slug": "freedom-of-speech",
+        "url": "https://collegian.com/category/freedom-of-speech/"
+      },
+      {
+        "name": "Halloween",
+        "slug": "halloween",
+        "url": "https://collegian.com/category/halloween/"
+      },
+      {
+        "name": "Homecoming",
+        "slug": "homecoming",
+        "url": "https://collegian.com/category/homecoming/"
+      },
+      {
+        "name": "Indigenous and Local History",
+        "slug": "indigenous-and-local-history",
+        "url": "https://collegian.com/category/indigenous-and-local-history/"
+      },
+      {
+        "name": "Move In Edition",
+        "slug": "move-in-edition",
+        "url": "https://collegian.com/category/move-in-edition/"
+      },
+      {
+        "name": "One Year With COVID-19",
+        "slug": "one-year-with-covid-19",
+        "url": "https://collegian.com/category/one-year-with-covid-19/"
+      },
+      {
+        "name": "Our Political State",
+        "slug": "our-political-state",
+        "url": "https://collegian.com/category/our-political-state/"
+      },
+      {
+        "name": "Rocky Mountain Showdown Collaboration",
+        "slug": "rocky-mountain-showdown-collaboration",
+        "url": "https://collegian.com/category/rocky-mountain-showdown-collaboration/"
+      },
+      {
+        "name": "Title IX",
+        "slug": "title-ix",
+        "url": "https://collegian.com/category/title-ix/"
+      },
+      {
+        "name": "Transgender Awareness Week",
+        "slug": "transgender-awareness-week",
+        "url": "https://collegian.com/category/transgender-awareness-week/"
+      },
+      {
+        "name": "Sponsored Content",
+        "slug": "sponsored",
+        "url": "https://collegian.com/category/sponsored/"
+      },
+      {
+        "name": "Beer Me",
+        "slug": "beer-me",
+        "url": "https://collegian.com/category/beer-me/"
+      },
+      {
+        "name": "Events",
+        "slug": "events",
+        "url": "https://collegian.com/category/events/"
+      },
+      {
+        "name": "Green Report",
+        "slug": "greenreport",
+        "url": "https://collegian.com/category/greenreport/"
+      },
+      {
+        "name": "Inside ASCSU",
+        "slug": "inside-ascsu",
+        "url": "https://collegian.com/category/inside-ascsu/"
+      },
+      {
+        "name": "Other Articles",
+        "slug": "other",
+        "url": "https://collegian.com/category/other/"
+      },
+      {
+        "name": "RamPage",
+        "slug": "rampage",
+        "url": "https://collegian.com/category/rampage/"
+      },
+      {
+        "name": "RamPage Features",
+        "slug": "rampage-features",
+        "url": "https://collegian.com/category/rampage-features/"
+      },
+      {
+        "name": "Rampage Intramurals",
+        "slug": "rampage-intramurals",
+        "url": "https://collegian.com/category/rampage-intramurals/"
+      },
+      {
+        "name": "Rampage Outdoor",
+        "slug": "rampage-outdoor",
+        "url": "https://collegian.com/category/rampage-outdoor/"
+      },
+      {
+        "name": "RamPage Video",
+        "slug": "rampage-video",
+        "url": "https://collegian.com/category/rampage-video/"
+      },
+      {
+        "name": "Sport Clubs",
+        "slug": "rampage-sport-clubs",
+        "url": "https://collegian.com/category/rampage-sport-clubs/"
+      },
+      {
+        "name": "Style Overview",
+        "slug": "so",
+        "url": "https://collegian.com/category/so/"
+      },
+      {
+        "name": "SO Features",
+        "slug": "so-features",
+        "url": "https://collegian.com/category/so-features/"
+      },
+      {
+        "name": "SO Her",
+        "slug": "soher",
+        "url": "https://collegian.com/category/soher/"
+      },
+      {
+        "name": "SO Him",
+        "slug": "sohim",
+        "url": "https://collegian.com/category/sohim/"
+      },
+      {
+        "name": "SO News",
+        "slug": "sonews",
+        "url": "https://collegian.com/category/sonews/"
+      },
+      {
+        "name": "SO You",
+        "slug": "so-you",
+        "url": "https://collegian.com/category/so-you/"
+      },
+      {
+        "name": "Uncategorized",
+        "slug": "uncategorized",
+        "url": "https://collegian.com/category/uncategorized/"
+      }
+    ]
+  },
+  "collegeavemag": {
+    "site": "College Ave Mag",
+    "url": "https://collegeavemag.com",
+    "total_categories": 4,
+    "categories": [
+      {
+        "name": "Features",
+        "slug": "features",
+        "url": "https://collegeavemag.com/category/features/"
+      },
+      {
+        "name": "Culture",
+        "slug": "culture",
+        "url": "https://collegeavemag.com/category/culture/"
+      },
+      {
+        "name": "Food & Drink",
+        "slug": "food-drink",
+        "url": "https://collegeavemag.com/category/food-drink/"
+      },
+      {
+        "name": "Outdoors",
+        "slug": "outdoors",
+        "url": "https://collegeavemag.com/category/outdoors/"
+      }
+    ]
+  },
+  "kcsu": {
+    "site": "KCSU FM",
+    "url": "https://kcsufm.com",
+    "total_categories": 3,
+    "categories": [
+      {
+        "name": "Podcast",
+        "slug": "podcast",
+        "url": "https://kcsufm.com/category/podcast/"
+      },
+      {
+        "name": "News",
+        "slug": "news",
+        "url": "https://kcsufm.com/category/news/"
+      },
+      {
+        "name": "Sports",
+        "slug": "sports",
+        "url": "https://kcsufm.com/category/sports/"
+      }
+    ]
+  }
+}

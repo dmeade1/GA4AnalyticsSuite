@@ -1,0 +1,136 @@
+[Log] Name,Slug,Count
+[Log] "About Us","about-us",118
+[Log] "April Fools’ Day","april-fools",132
+[Log] "Articles","articles",110
+[Log] "— Arts and Entertainment","aande",4
+[Log] "— — Campus & Local Arts","campus-local-arts",248
+[Log] "— — Collegian Reviews","collegian-reviews",35
+[Log] "— — Entertainment","entertainment",548
+[Log] "— — Events","events-aande",519
+[Log] "— — Features","features-aande",263
+[Log] "— — Horoscopes","horoscopes",261
+[Log] "— — Meet the Artist","meet-the-artist",21
+[Log] "— — Music","acmusic",769
+[Log] "— Español","espanol",95
+[Log] "— Homepage","featured",5
+[Log] "— Life and Culture","landc",404
+[Log] "— — Community Events","community-events",39
+[Log] "— — — Cultural Resource Centers","cultural-resource-centers",10
+[Log] "— — Culture and Community","culture",1
+[Log] "— — — Culture","culture-2",10
+[Log] "— — Features","features-culture",10
+[Log] "— — Food","food",259
+[Log] "— — Fort Collins Life","fortcollinslife",393
+[Log] "— — History","history",6
+[Log] "— — Student Life","student-life",19
+[Log] "— News","news",7
+[Log] "— — 2024 Elections","2024-elections",23
+[Log] "— — Campus","campus",1
+[Log] "— — — ASCSU","ascsu",180
+[Log] "— — — — ASCSU Elections","ascsu-elections",23
+[Log] "— — Crime","crime",255
+[Log] "— — Investigative Reporting","investigative-reporting",1
+[Log] "— — Midterm Voter Guide","midterms-voter-guide",13
+[Log] "— — Municipal elections","municipal-elections",11
+[Log] "— — National","national",13
+[Log] "— — News Blogs","life2",896
+[Log] "— — Politics","news-news",373
+[Log] "— Opinion","opinion",3
+[Log] "— — Climate Column","climate-column",8
+[Log] "— — Collegian Columnists","collegian-columnists",1
+[Log] "— — Collegian Sex Column","collegian-sex-column",71
+[Log] "— — Editorials","editorials",26
+[Log] "— — Goodbye Columns","goodbye-columns",32
+[Log] "— — Guest Columnists","guest-columnists",19
+[Log] "— — Letters from the Editor","letters-from-the-editor",82
+[Log] "— — Letters to the Editor","letters-to-the-editor",299
+[Log] "— — Seriously","seriously",330
+[Log] "— Science","science",417
+[Log] "— — Cannabis","cannabis",175
+[Log] "— — Health & Medicine","health-medicine",5
+[Log] "— — Research","research",72
+[Log] "— — Sci-Features","sci-features",19
+[Log] "— — Sustainability & Environment","sustainability-environment",18
+[Log] "— Sports","sports",6
+[Log] "— — Columns","columns",9
+[Log] "— — Community Sports","communitysports",32
+[Log] "— — CSU Club","club_sports",309
+[Log] "— — — Recreation","recreation",12
+[Log] "— — Fall","fall-sports",330
+[Log] "— — — Cross Country","cross-country",48
+[Log] "— — — Football","football",1
+[Log] "— — — — NFL Draft Profiles","nfl-draft-profiles",4
+[Log] "— — — Soccer","soccer",263
+[Log] "— — — Volleyball","volleyball-sports",721
+[Log] "— — Fantasy Football","fantasy-football",11
+[Log] "— — Features","features-sports",22
+[Log] "— — NCAA","ncaa",603
+[Log] "— — Recaps","recaps",62
+[Log] "— — Spring","spring-sports",106
+[Log] "— — — Golf","golf",92
+[Log] "— — — Softball","softball",219
+[Log] "— — — Spring Camp","spring-camp",5
+[Log] "— — — Tennis","tennis",51
+[Log] "— — — Track and Field","track-and-field",142
+[Log] "— — Transfers & Recruitment","transfers-recruitment",0
+[Log] "— — Trash Talk","trash-talk",24
+[Log] "— — Winter","winter-sports",200
+[Log] "— — — Basketball","basketball",240
+[Log] "— — — — Men’s Basketball","mens_bball",1
+[Log] "— — — — Women’s Basketball","womens_bball",673
+[Log] "— — — Swim and Dive","swim-dive",43
+[Log] "Blogs","blogs",705
+[Log] "— Living the Alternative","altlife",739
+[Log] "Breaking","break",49
+[Log] "Economics","economics",0
+[Log] "Election","election",8
+[Log] "Featured Stories","featured-stories",0
+[Log] "Local","local",13
+[Log] "— City","city",949
+[Log] "Loose Stems","loose-stems",0
+[Log] "Media","media",286
+[Log] "— Comics","comics",38
+[Log] "— Focus Photos","focusphotos",14
+[Log] "— Frame by Frame","frame-by-frame",35
+[Log] "— Galleries","galleries",187
+[Log] "— Illustrations","illustrations",8
+[Log] "— Meet the Photographer","meetthephotographer",34
+[Log] "— Multimedia","multimedia",560
+[Log] "— Photo Stories","photostory",30
+[Log] "— Photographer on the street","photographer-on-the-street",1
+[Log] "Orange Cord","orangecord",3
+[Log] "— CTV Shows","ctv_shows",540
+[Log] "science","science-2",0
+[Log] "Special Editions","special-editions",197
+[Log] "— Beer Edition","beer-edition",20
+[Log] "— Black History Month","black-history-month",8
+[Log] "— Campus in Contention","campus-in-contention",6
+[Log] "— Freedom of Speech","freedom-of-speech",20
+[Log] "— Halloween","halloween",16
+[Log] "— Homecoming","homecoming",12
+[Log] "— Indigenous and Local History","indigenous-and-local-history",18
+[Log] "— Move In Edition","move-in-edition",24
+[Log] "— One Year With COVID-19","one-year-with-covid-19",14
+[Log] "— Our Political State","our-political-state",25
+[Log] "— Rocky Mountain Showdown Collaboration","rocky-mountain-showdown-collaboration",15
+[Log] "— Title IX","title-ix",9
+[Log] "— Transgender Awareness Week","transgender-awareness-week",12
+[Log] "Sponsored Content","sponsored",951
+[Log] "— Beer Me","beer-me",41
+[Log] "— Events","events",223
+[Log] "— Green Report","greenreport",351
+[Log] "— Inside ASCSU","inside-ascsu",14
+[Log] "— Other Articles","other",26
+[Log] "— RamPage","rampage",310
+[Log] "— — RamPage Features","rampage-features",71
+[Log] "— — Rampage Intramurals","rampage-intramurals",18
+[Log] "— — Rampage Outdoor","rampage-outdoor",179
+[Log] "— — RamPage Video","rampage-video",10
+[Log] "— — Sport Clubs","rampage-sport-clubs",42
+[Log] "— Style Overview","so",137
+[Log] "— — SO Features","so-features",67
+[Log] "— — SO Her","soher",71
+[Log] "— — SO Him","sohim",34
+[Log] "— — SO News","sonews",9
+[Log] "— — SO You","so-you",10
+[Log] "Uncategorized","uncategorized",493

@@ -12,6 +12,19 @@ let gisInited = false;
 let accessToken = null;
 let currentPropertyId = null;
 let comparisonMode = 'time'; // 'time' or 'property'
+let analysisType = 'standard'; // 'standard' or 'category'
+let contentCategories = [];
+
+// Property-Specific Categories (Scraped Data)
+// Property-Specific Categories (Scraped Data)
+let PROPERTY_CATEGORIES = {
+  // Default / Fallback (will be overwritten/merged with scraped data)
+  'default': [
+    { id: 'news', name: 'News', pattern: '/news/' },
+    { id: 'sports', name: 'Sports', pattern: '/sports/' },
+    { id: 'arts', name: 'Arts', pattern: '/arts/' }
+  ]
+};
 
 // Configurable Metrics
 const METRICS = [
@@ -64,9 +77,56 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize date inputs with default values
   initializeDateInputs();
 
+  // Render initial categories
+  renderCategories();
+
   // Preload logos
   preloadLogos();
+
+  // Load scraped categories
+  loadScrapedCategories();
 });
+
+/**
+ * Load categories from Scraper/rmsmc_categories.json
+ */
+async function loadScrapedCategories() {
+  try {
+    const response = await fetch(`Scraper/rmsmc_categories.json?t=${new Date().getTime()}`);
+    if (!response.ok) throw new Error('Failed to load categories');
+
+    const data = await response.json();
+
+    // Map JSON keys to Property IDs
+    const propertyMap = {
+      'collegian': '321341958',
+      'collegeavemag': '352975714',
+      'kcsu': '352970688'
+    };
+
+    // Process and merge data
+    for (const [key, siteData] of Object.entries(data)) {
+      const propertyId = propertyMap[key];
+      if (propertyId && siteData.categories) {
+        PROPERTY_CATEGORIES[propertyId] = siteData.categories.map(cat => ({
+          id: cat.slug.replace(/\//g, '_'), // Create safe ID from slug
+          name: cat.name,
+          pattern: cat.url.replace(siteData.url, '') // Extract relative path/pattern
+        }));
+      }
+    }
+
+    console.log('Loaded scraped categories:', PROPERTY_CATEGORIES);
+
+    // Refresh categories if a property is already selected
+    if (currentPropertyId && analysisType === 'category') {
+      updateCategoriesForProperty(currentPropertyId);
+    }
+
+  } catch (error) {
+    console.warn('Could not load scraped categories, using defaults:', error);
+  }
+}
 
 /**
  * Callback after Google API Client Library loads
@@ -268,6 +328,12 @@ function setupEventListeners() {
   // Comparison mode selector
   document.getElementById('comparisonMode').addEventListener('change', handleComparisonModeChange);
 
+  // Analysis Type selector
+  document.getElementById('analysisType').addEventListener('change', handleAnalysisTypeChange);
+
+  // Add Category Button
+  document.getElementById('addCategoryBtn').addEventListener('click', handleAddCategory);
+
   // Date range preset selectors
   document.getElementById('dateRangePreset').addEventListener('change', handleDateRangeChange);
   document.getElementById('singleDateRange').addEventListener('change', handleSingleDateRangeChange);
@@ -275,6 +341,11 @@ function setupEventListeners() {
   // Property ID input - save to state
   document.getElementById('propertyId').addEventListener('change', (e) => {
     currentPropertyId = e.target.value.trim();
+
+    // Update categories based on selected property
+    if (analysisType === 'category') {
+      updateCategoriesForProperty(currentPropertyId);
+    }
   });
 
   // Filter checkbox
@@ -408,6 +479,152 @@ function handleComparisonModeChange(e) {
     propertyViews.forEach(el => el.classList.remove('hidden'));
   }
 }
+
+/**
+ * Update categories based on selected property
+ */
+function updateCategoriesForProperty(propertyId) {
+  if (PROPERTY_CATEGORIES[propertyId]) {
+    contentCategories = JSON.parse(JSON.stringify(PROPERTY_CATEGORIES[propertyId]));
+  } else {
+    contentCategories = JSON.parse(JSON.stringify(PROPERTY_CATEGORIES['default']));
+  }
+  renderCategories();
+}
+
+/**
+ * Handle Analysis Type Change
+ */
+function handleAnalysisTypeChange(e) {
+  analysisType = e.target.value;
+  const comparisonModeGroup = document.getElementById('comparisonModeGroup');
+  const categoryConfigGroup = document.getElementById('categoryConfigGroup');
+  const multiPropertyGroup = document.getElementById('multiPropertyGroup');
+  const singlePropertyGroup = document.getElementById('singlePropertyGroup');
+  const dateRangePresetGroup = document.getElementById('dateRangePresetGroup');
+  const singleDateRangeGroup = document.getElementById('singleDateRangeGroup');
+  const propertySelect = document.getElementById('propertyId');
+
+  // Properties to exclude in Category Analysis mode
+  const excludedProperties = ['352990478', '397333725']; // RMSMC, Fifty03
+
+  if (analysisType === 'category') {
+    // Category Analysis Mode
+    comparisonModeGroup.classList.add('hidden');
+    categoryConfigGroup.classList.remove('hidden');
+
+    // Force Single Property Mode UI
+    singlePropertyGroup.classList.remove('hidden');
+    multiPropertyGroup.classList.add('hidden');
+
+    // Force Date Range Preset UI
+    dateRangePresetGroup.classList.remove('hidden');
+    singleDateRangeGroup.classList.add('hidden');
+
+    // Reset custom date ranges visibility
+    document.getElementById('customDateRanges').classList.add('hidden');
+
+    // Filter Property Options
+    Array.from(propertySelect.options).forEach(option => {
+      if (excludedProperties.includes(option.value)) {
+        option.hidden = true;
+        option.disabled = true; // Also disable to prevent selection
+      }
+    });
+
+    // If currently selected property is excluded, switch to default (Collegian)
+    if (excludedProperties.includes(propertySelect.value)) {
+      propertySelect.value = '321341958'; // Collegian
+      currentPropertyId = '321341958';
+      // Trigger change event to update categories
+      propertySelect.dispatchEvent(new Event('change'));
+    }
+
+    // Update categories for current property if selected
+    const propertyId = propertySelect.value;
+    if (propertyId) {
+      updateCategoriesForProperty(propertyId);
+    } else {
+      // Initialize with default if no property selected
+      updateCategoriesForProperty('default');
+    }
+  } else {
+    // Standard Analysis Mode
+    comparisonModeGroup.classList.remove('hidden');
+    categoryConfigGroup.classList.add('hidden');
+
+    // Restore Property Options
+    Array.from(propertySelect.options).forEach(option => {
+      option.hidden = false;
+      option.disabled = false;
+    });
+
+    // Trigger comparison mode change to restore correct UI state
+    document.getElementById('comparisonMode').dispatchEvent(new Event('change'));
+  }
+}
+
+/**
+ * Render Content Categories
+ */
+function renderCategories() {
+  const container = document.getElementById('categoriesContainer');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  contentCategories.forEach((category, index) => {
+    const categoryEl = document.createElement('div');
+    categoryEl.className = 'card p-sm flex-col gap-xs';
+    categoryEl.innerHTML = `
+      <div class="flex-between">
+        <label class="text-xs font-semibold">Category Name</label>
+        ${contentCategories.length > 1 ? `
+        <button class="btn-icon text-danger" onclick="handleRemoveCategory(${index})" title="Remove Category">
+          ✕
+        </button>` : ''}
+      </div>
+      <input type="text" class="form-input text-sm" value="${category.name}" 
+        onchange="handleCategoryChange(${index}, 'name', this.value)" placeholder="e.g. News">
+      
+      <label class="text-xs font-semibold mt-xs">URL Pattern</label>
+      <input type="text" class="form-input text-sm" value="${category.pattern}" 
+        onchange="handleCategoryChange(${index}, 'pattern', this.value)" placeholder="e.g. /news/">
+    `;
+    container.appendChild(categoryEl);
+  });
+}
+
+/**
+ * Handle Add Category
+ */
+function handleAddCategory() {
+  contentCategories.push({
+    id: `cat_${Date.now()}`,
+    name: 'New Category',
+    pattern: '/'
+  });
+  renderCategories();
+}
+
+/**
+ * Handle Remove Category
+ */
+function handleRemoveCategory(index) {
+  contentCategories.splice(index, 1);
+  renderCategories();
+}
+
+/**
+ * Handle Category Change
+ */
+function handleCategoryChange(index, field, value) {
+  contentCategories[index][field] = value;
+}
+
+// Make functions globally available for inline onclick handlers
+window.handleRemoveCategory = handleRemoveCategory;
+window.handleCategoryChange = handleCategoryChange;
 
 /**
  * Handle date range preset change
@@ -705,7 +922,25 @@ async function handleFetchData() {
   document.getElementById('configMessage').classList.add('hidden');
 
   try {
-    if (comparisonMode === 'time') {
+    if (analysisType === 'category') {
+      // Content Category Analysis Mode
+      const propertyId = document.getElementById('propertyId').value.trim();
+      if (!propertyId) throw new Error('Please select a GA4 Property');
+      currentPropertyId = propertyId;
+
+      // Get date ranges (using same logic as time comparison for now, or just primary)
+      const dateRanges = getDateRanges();
+
+      // Fetch data for each category
+      const categoryData = await fetchCategoryData(propertyId, dateRanges, contentCategories);
+
+      // Render Category Analysis
+      renderCategoryAnalysis(categoryData, dateRanges);
+
+      // Store data for re-rendering
+      window.lastCategoryData = { data: categoryData, dateRanges };
+
+    } else if (comparisonMode === 'time') {
       // Time comparison mode: single property, two time periods
       const propertyId = document.getElementById('propertyId').value.trim();
 
@@ -780,6 +1015,193 @@ async function handleFetchData() {
     document.getElementById('loadingState').classList.add('hidden');
     showMessage('configMessage', `Error: ${error.message}`, 'error');
   }
+}
+
+/**
+ * Fetch Data for Content Categories
+ */
+async function fetchCategoryData(propertyId, dateRanges, categories) {
+  const results = [];
+
+  for (const category of categories) {
+    // Create filter for this category
+    const filter = {
+      filter: {
+        fieldName: 'pagePath',
+        stringFilter: {
+          matchType: 'CONTAINS',
+          value: category.pattern,
+          caseSensitive: false
+        }
+      }
+    };
+
+    // Fetch data
+    const request = {
+      property: `properties/${propertyId}`,
+      dateRanges: dateRanges,
+      metrics: [
+        { name: 'screenPageViews' },
+        { name: 'totalUsers' },
+        { name: 'sessions' },
+        { name: 'engagementRate' },
+        { name: 'averageSessionDuration' }
+      ],
+      dimensionFilter: filter
+    };
+
+    try {
+      const response = await gapi.client.analyticsdata.properties.runReport(request);
+      const rows = response.result.rows || [];
+
+      // Process rows (handling date ranges if multiple)
+      // For simplicity, we'll take the totals from the first date range (primary)
+      // If rows exist, they are usually broken down by dimensions. 
+      // Since we didn't request dimensions, we should get one row per date range.
+
+      let primaryMetrics = {
+        pageViews: 0,
+        users: 0,
+        sessions: 0,
+        engagementRate: 0,
+        avgSessionDuration: 0
+      };
+
+      if (rows.length > 0) {
+        // Find row for date_range_index 0 (primary)
+        // Note: If no dimensions, rows might just be index based.
+        // runReport without dimensions returns one row per date range if keepEmptyRows is false?
+        // Actually, without dimensions, it returns totals.
+
+        // Let's assume the first row is what we want or sum them up if needed.
+        // But wait, if we have 2 date ranges, we get rows with 'dateRange' dimension implicitly? 
+        // No, we need to handle the response structure carefully.
+
+        // Let's just grab the first row's metric values for now.
+        const metricValues = rows[0].metricValues;
+        primaryMetrics = {
+          pageViews: parseInt(metricValues[0].value),
+          users: parseInt(metricValues[1].value),
+          sessions: parseInt(metricValues[2].value),
+          engagementRate: parseFloat(metricValues[3].value),
+          avgSessionDuration: parseFloat(metricValues[4].value)
+        };
+      }
+
+      results.push({
+        category: category.name,
+        metrics: primaryMetrics
+      });
+
+    } catch (err) {
+      console.error(`Error fetching data for category ${category.name}:`, err);
+      results.push({
+        category: category.name,
+        metrics: { pageViews: 0, users: 0, sessions: 0, engagementRate: 0, avgSessionDuration: 0 },
+        error: err.message
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Render Category Analysis Dashboard
+ */
+function renderCategoryAnalysis(data, dateRanges) {
+  const dashboard = document.getElementById('dashboard');
+  dashboard.innerHTML = ''; // Clear existing dashboard
+
+  // Create Container
+  const container = document.createElement('div');
+  container.className = 'flex-col gap-xl';
+
+  // 1. Bar Chart: Page Views by Category
+  const chartCard = document.createElement('div');
+  chartCard.className = 'card';
+  chartCard.innerHTML = `
+    <div class="card-header">
+      <h3 class="card-title">📊 Content Category Performance</h3>
+      <p class="card-subtitle">Page Views by Category (${dateRanges[0].startDate} to ${dateRanges[0].endDate})</p>
+    </div>
+    <div class="chart-container" style="height: 400px;">
+      <canvas id="categoryChart"></canvas>
+    </div>
+  `;
+  container.appendChild(chartCard);
+
+  // 2. Data Table
+  const tableCard = document.createElement('div');
+  tableCard.className = 'card';
+  tableCard.innerHTML = `
+    <div class="card-header">
+      <h3 class="card-title">📋 Detailed Breakdown</h3>
+    </div>
+    <div style="overflow-x: auto;">
+      <table class="data-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--color-border); text-align: left;">
+            <th class="p-sm">Category</th>
+            <th class="p-sm text-right">Page Views</th>
+            <th class="p-sm text-right">Users</th>
+            <th class="p-sm text-right">Sessions</th>
+            <th class="p-sm text-right">Eng. Rate</th>
+            <th class="p-sm text-right">Avg Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map(item => `
+            <tr style="border-bottom: 1px solid var(--color-border-subtle);">
+              <td class="p-sm font-semibold">${item.category}</td>
+              <td class="p-sm text-right">${formatNumber(item.metrics.pageViews)}</td>
+              <td class="p-sm text-right">${formatNumber(item.metrics.users)}</td>
+              <td class="p-sm text-right">${formatNumber(item.metrics.sessions)}</td>
+              <td class="p-sm text-right">${(item.metrics.engagementRate * 100).toFixed(1)}%</td>
+              <td class="p-sm text-right">${formatDuration(item.metrics.avgSessionDuration)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  container.appendChild(tableCard);
+
+  dashboard.appendChild(container);
+
+  // Render Chart
+  const ctx = document.getElementById('categoryChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: data.map(d => d.category),
+      datasets: [{
+        label: 'Page Views',
+        data: data.map(d => d.metrics.pageViews),
+        backgroundColor: 'rgba(99, 102, 241, 0.6)',
+        borderColor: 'rgb(99, 102, 241)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(255, 255, 255, 0.1)' },
+          ticks: { color: '#94a3b8' }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: '#94a3b8' }
+        }
+      }
+    }
+  });
 }
 
 /**
