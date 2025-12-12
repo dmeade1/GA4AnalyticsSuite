@@ -1,0 +1,11 @@
+{
+    "name": "ga4-analytics-suite",
+    "version": "1.0.0",
+    "description": "GA4 Analytics Dashboard",
+    "scripts": {
+        "build": "node generate-config.js"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC"
+}
